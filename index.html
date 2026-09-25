@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="fi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#111418">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Treeni">
+<title>Treeni</title>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icon-180.png">
+<link rel="icon" href="icon-192.png">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header id="topbar">
+  <span id="title">Treeni</span>
+  <span id="sync" class="sync" title="Tallennuksen tila"></span>
+</header>
+<main id="view"><p class="muted center">Ladataan…</p></main>
+<nav id="tabs" hidden>
+  <button data-tab="tanaan" class="active">Tänään</button>
+  <button data-tab="ohjelma">Ohjelma</button>
+  <button data-tab="historia">Historia</button>
+  <button data-tab="paino">Paino</button>
+  <button data-tab="vienti">Data</button>
+</nav>
+<div id="toast" hidden></div>
+<script type="module" src="app.js"></script>
+</body>
+</html>
