@@ -1,0 +1,6 @@
+# Treenidataa ei koskaan repoon (repo on julkinen)
+*.csv
+*.json
+!manifest.webmanifest
+*.xlsx
+*.xlsm

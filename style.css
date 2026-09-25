@@ -6,6 +6,9 @@
   color-scheme: dark;
 }
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+/* iPhone: estä tuplanapautuszoomaus ja tekstin valinta painikkeissa */
+html,body,button,input,textarea,select,a,.stepper{touch-action:manipulation}
+button{-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}
 html,body{margin:0;background:var(--bg);color:var(--text);font:17px/1.4 -apple-system,BlinkMacSystemFont,"SF Pro Text",system-ui,sans-serif}
 body{padding-bottom:calc(76px + env(safe-area-inset-bottom))}
 #topbar{position:sticky;top:0;z-index:5;display:flex;justify-content:space-between;align-items:center;
@@ -31,7 +34,7 @@ button.danger{color:var(--danger)}
 button.ghost{background:none}
 button.block{width:100%}
 button:disabled{opacity:.45}
-input,select,textarea{font:inherit;color:var(--text);background:#0e1216;border:1px solid var(--line);border-radius:10px;padding:10px 12px;min-height:44px;width:100%}
+input,select,textarea{font:inherit;font-size:max(16px,1em);color:var(--text);background:#0e1216;border:1px solid var(--line);border-radius:10px;padding:10px 12px;min-height:44px;width:100%}
 textarea{min-height:64px}
 label{display:block;font-size:14px;color:var(--muted);margin:10px 0 4px}
 .badge{display:inline-block;font-size:12px;font-weight:700;padding:3px 8px;border-radius:99px;background:var(--card2);color:var(--muted)}

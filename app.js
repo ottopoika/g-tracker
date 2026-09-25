@@ -5,7 +5,7 @@ import {
   collection, doc, setDoc, deleteDoc, onSnapshot, writeBatch
 } from "./firebase-bundle.js";
 
-const VERSION = "0.1.0";
+const VERSION = "0.1.1";
 const firebaseConfig = {
   apiKey: "AIzaSyDTOryLjY0VBOa9DIuH02yVlxuy0JOBFKk",
   authDomain: "gym-tracker-e1050.firebaseapp.com",
@@ -233,7 +233,7 @@ function renderWorkout(k) {
       }
       h += `<div class="row" style="margin-top:6px"><button class="ghost small" data-act="addset">+ sarja</button>
         <button class="ghost small" data-act="swap">Vaihda liike</button><button class="ghost small" data-act="skip">Ohita</button></div>
-        <input class="small" data-f="note" placeholder="Huomio (valinnainen)" value="${esc(l.huomio || "")}">`;
+        <input data-f="note" placeholder="Huomio (valinnainen)" value="${esc(l.huomio || "")}">`;
     } else h += `<button class="ghost small" data-act="unskip">Palauta liike</button>`;
     h += `</div>`;
   });
@@ -323,7 +323,17 @@ function renderProgram() {
   });
   if (S.meta?.aloitus) h += `<h2>Viikon säätö</h2><p class="muted small">Jos viikko meni väärin, voit asettaa nykyisen viikon käsin.</p>
     <div class="row"><input id="wset" type="number" min="1" max="${p.viikkoja}" value="${cur}"><button id="wbtn">Aseta</button></div>`;
+  if (S.meta?.aloitus) h += `<h2>Nollaa aloitus</h2><p class="muted small">Poistaa ohjelman aloituspäivän ja kaikki tämän ohjelman sovelluksella kirjatut treenikerrat. Vanha historia ja punnitukset säilyvät. Käytä esim. testauksen jälkeen.</p>
+    <button class="danger block" id="reset">Nollaa ohjelman aloitus</button>`;
   $view.innerHTML = h;
+  const rb = document.getElementById("reset");
+  if (rb) rb.onclick = () => {
+    const mine = S.kerrat.filter(k => k.lahde === "sovellus" && k.ohjelmaId === p.id);
+    if (!confirm(`Nollataanko aloitus? ${mine.length} kirjattua treenikertaa poistetaan pysyvästi.`)) return;
+    const b = writeBatch(db); mine.forEach(k => b.delete(userDoc("treenikerrat", k.id))); b.commit().catch(e => toast("Virhe: " + e.code));
+    S.kerrat = S.kerrat.filter(k => !mine.includes(k));
+    saveMeta({ aloitus: null, viikko: null, vaihdot: [] }); toast("Aloitus nollattu");
+  };
   const wb = document.getElementById("wbtn"); if (wb) wb.onclick = () => { const v = +document.getElementById("wset").value; if (v >= 1 && v <= p.viikkoja + 1) { saveMeta({ viikko: v }); toast("Viikko " + v); } };
 }
 
