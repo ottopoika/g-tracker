@@ -5,7 +5,7 @@ import {
   collection, doc, setDoc, deleteDoc, onSnapshot, writeBatch
 } from "./firebase-bundle.js";
 
-const VERSION = "0.2.0";
+const VERSION = "0.3.0";
 const firebaseConfig = {
   apiKey: "AIzaSyDTOryLjY0VBOa9DIuH02yVlxuy0JOBFKk",
   authDomain: "gym-tracker-e1050.firebaseapp.com",
@@ -130,7 +130,7 @@ function render() {
   const a = document.activeElement;
   if (a && $view.contains(a) && (a.tagName === "INPUT" || a.tagName === "TEXTAREA") && S._typing) return;
   // liikevalitsin auki: piirretään uudelleen vasta kun se suljetaan
-  if (document.getElementById("expick")) { S._deferred = true; return; }
+  if (document.getElementById("expick-wrap")) { S._deferred = true; return; }
   const fn = { tanaan: renderToday, ohjelma: renderProgram, historia: renderHistory, paino: renderWeight, vienti: renderData }[S.tab];
   fn();
 }
@@ -162,7 +162,7 @@ function renderToday() {
   if (S.editId || kesken) return renderWorkout(S.kerrat.find(k => k.id === (S.editId || kesken.id)));
   if (S.mode === "oma") return renderNewCustom();
   const m = S.meta || {};
-  const omaBtn = `<button class="block" id="custom" style="margin-top:16px">+ Oma treeni</button><p class="muted small center">Ei siirrä ohjelman etenemistä.</p>`;
+  const omaBtn = `<button class="block ghost" id="custom" style="margin-top:8px">+ Oma treeni</button><p class="muted center" style="font-size:13px;margin-top:0">Ei siirrä ohjelman etenemistä</p>`;
   const bindOma = () => { const b = document.getElementById("custom"); if (b) b.onclick = () => { S.mode = "oma"; S.pickFilter = ""; render(); scrollTo(0, 0); }; };
   let h = exportBanner();
   if (!m.aloitus) {
@@ -174,21 +174,28 @@ function renderToday() {
   const w = m.viikko || 1;
   if (w > p.viikkoja) { $view.innerHTML = h + `<h1>Ohjelma suoritettu</h1><p>Hienoa! Muista viedä data iCloudiin Data-välilehdeltä.</p>${omaBtn}`; bindOma(); return; }
   const wi = weekInfo(p, w);
-  h += `<h1>Viikko ${w} / ${p.viikkoja}</h1><p class="muted small">${esc(wi.jakso.nimi)} · ${esc(wi.jakso.ohje)}</p>`;
+  h += `<div class="eyebrow">${esc(wi.jakso.nimi)}</div><h1>Viikko ${w}<span class="muted" style="font-weight:600"> / ${p.viikkoja}</span></h1><p class="muted small">${esc(wi.jakso.ohje)}</p>`;
   if (!wi.slots.length) {
     h += `<div class="card"><h3>Lepoviikko</h3><p class="muted">Tällä viikolla ei ole treenejä.</p></div><button class="primary block" id="next">Siirry viikkoon ${w + 1}</button>${omaBtn}`;
     $view.innerHTML = h; bindOma(); document.getElementById("next").onclick = () => nextWeek(p, w); return;
   }
   let firstOpen = -1;
+  wi.slots.forEach((t, i) => { if (firstOpen < 0 && !sessionForSlot(p, w, i)) firstOpen = i; });
   const slotsHtml = wi.slots.map((t, i) => {
     const k = sessionForSlot(p, w, i);
-    if (!k && firstOpen < 0) firstOpen = i;
+    if (i === firstOpen) return "";
     const st = k ? `<span class="badge ${k.tila}">${{ tehty: "Tehty", osittain: "Osittain", valiin: "Väliin jätetty", kesken: "Kesken" }[k.tila]}${k.pvm ? " " + fiDate(k.pvm) : ""}</span>` : "";
-    return `<div class="card slot"><div><h3>${esc(t.nimi)}</h3><div class="muted small">${t.liikkeet.length} liikettä ${st}</div></div>
-      ${k ? (k.tila !== "valiin" ? `<button data-open="${k.id}" class="ghost">Avaa</button>` : "") : `<button data-slot="${i}" class="${i === firstOpen ? "primary" : ""}">Aloita</button>`}</div>`;
+    return `<div class="card slot"><div><h3>${esc(t.nimi)}</h3><div class="meta">${t.liikkeet.length} liikettä ${st}</div></div>
+      ${k ? (k.tila !== "valiin" ? `<button data-open="${k.id}" class="small">Avaa</button>` : "") : `<button data-slot="${i}" class="small">Aloita</button>`}</div>`;
   }).join("");
-  h += (firstOpen >= 0 ? `<p class="small">Seuraavaksi: <b>${esc(wi.slots[firstOpen].nimi)}</b></p>` : `<p class="small">Viikon treenit on käyty läpi.</p>`) + slotsHtml;
-  h += `<button class="block" id="next" style="margin-top:12px">Siirry viikkoon ${w + 1}${firstOpen >= 0 ? " (tekemättömät merkitään väliin jätetyiksi)" : ""}</button>${omaBtn}`;
+  if (firstOpen >= 0) {
+    const t = wi.slots[firstOpen];
+    h += `<div class="hero"><div class="eyebrow">Seuraavaksi · ${firstOpen + 1}/${wi.slots.length}</div><h3>${esc(t.nimi)}</h3>
+      <div class="preview">${esc(t.liikkeet.slice(0, 4).map(l => l.nimi).join(" · "))}${t.liikkeet.length > 4 ? ` +${t.liikkeet.length - 4}` : ""}</div>
+      <button class="primary" data-slot="${firstOpen}">Aloita treeni</button></div>`;
+  } else h += `<div class="card"><h3>Viikon treenit on käyty läpi</h3><p class="muted small">Siirry seuraavaan viikkoon, kun olet valmis.</p></div>`;
+  h += (wi.slots.length > 1 ? `<h2>Tämän viikon treenit</h2>` : "") + slotsHtml;
+  h += `<button class="block" id="next" style="margin-top:16px">Siirry viikkoon ${w + 1}${firstOpen >= 0 ? " (tekemättömät merkitään väliin jätetyiksi)" : ""}</button>${omaBtn}`;
   $view.innerHTML = h; bindOma();
   $view.querySelectorAll("[data-slot]").forEach(b => b.onclick = () => startWorkout(p, w, +b.dataset.slot));
   $view.querySelectorAll("[data-open]").forEach(b => b.onclick = () => { S.editId = b.dataset.open; S._leave = null; render(); });
@@ -285,7 +292,7 @@ function drawTimer() {
   if (!S.timer) { if (bar) bar.hidden = true; return; }
   if (!bar) {
     bar = document.createElement("div"); bar.id = "timer";
-    bar.innerHTML = `<span id="tlabel"></span><span class="row"><button id="tplus" class="ghost small">+30 s</button><button id="tskip" class="ghost small">Ohita</button></span>`;
+    bar.innerHTML = `<span id="tlabel"></span><span class="row" style="gap:6px"><button id="tplus">+30 s</button><button id="tskip">Ohita</button></span>`;
     document.body.appendChild(bar);
     bar.querySelector("#tskip").onclick = stopTimer;
     bar.querySelector("#tplus").onclick = () => { if (S.timer) S.timer.end += 30000; drawTimer(); };
@@ -293,6 +300,7 @@ function drawTimer() {
   bar.hidden = false;
   const left = Math.round((S.timer.end - Date.now()) / 1000);
   const lab = bar.querySelector("#tlabel");
+  bar.style.setProperty("--p", Math.max(0, Math.min(100, 100 * (1 - left / S.timer.total))) + "%");
   if (left > 0) { lab.textContent = `Palautus ${Math.floor(left / 60)}:${pad(left % 60)}`; bar.classList.remove("over"); }
   else { lab.textContent = "Palautus ohi – seuraava sarja"; bar.classList.add("over"); if (left < -20) stopTimer(); }
 }
@@ -308,8 +316,12 @@ function allExerciseNames() {
 function renderWorkout(k) {
   if (!k) { S.editId = null; return renderToday(); }
   const draft = S.draft && S.draft.id === k.id ? S.draft : (S.draft = { id: k.id, v: {} });
-  let h = `<div class="row space"><div><h1 style="margin-bottom:0">${esc(k.treeni)}</h1><div class="muted small">${k.tyyppi === "oma" || !k.ohjelmaId ? "Oma treeni" : `Viikko ${k.viikko} · ${esc(k.jakso || "")}`} ${k.pvm ? "· " + fiDate(k.pvm) : ""}</div></div>
-    <button class="ghost" id="back">Takaisin</button></div>`;
+  const planned = (k.liikkeet || []).reduce((a, l, li) => a + (l.ohitettu ? 0 : Math.max(l.sarjoja || 0, k.sarjat.filter(s => s.liikeIndex === li).length)), 0);
+  const doneN = k.sarjat.filter(s => !k.liikkeet[s.liikeIndex]?.ohitettu).length;
+  const frac = planned ? Math.min(1, doneN / planned) : 0, C = 2 * Math.PI * 27;
+  let h = `<div class="row space" style="margin-top:4px"><button class="ghost small" id="back" style="padding-left:0">‹ Takaisin</button><span class="muted" style="font-size:14px">${k.pvm ? fiDate(k.pvm) : ""}</span></div>
+    <div class="wo-head"><div><div class="eyebrow">${k.tyyppi === "oma" || !k.ohjelmaId ? "Oma treeni" : `Viikko ${k.viikko} · ${esc(k.jakso || "")}`}</div><h1 style="margin-top:4px">${esc(k.treeni)}</h1></div>
+    <div class="ring" aria-label="${doneN}/${planned} sarjaa"><svg viewBox="0 0 64 64"><circle class="bg" cx="32" cy="32" r="27"/><circle class="fg" cx="32" cy="32" r="27" stroke-dasharray="${C}" stroke-dashoffset="${C * (1 - frac)}"/></svg><span>${doneN}/${planned}</span></div></div>`;
   const p = S.ohjelmat[k.ohjelmaId]; const wi = p && weekInfo(p, k.viikko);
   if (wi) h += `<p class="muted small">${esc(wi.jakso.ohje)}</p>`;
   (k.liikkeet || []).forEach((l, li) => {
@@ -317,9 +329,9 @@ function renderWorkout(k) {
     const last = lastSetsFor(l.nimi, k.id);
     const rows = Math.max(l.sarjoja || 0, done.length) + (draft.v["extra" + li] || 0);
     h += `<div class="ex ${l.ohitettu ? "skipped" : ""}" data-li="${li}">
-      <div class="row space"><h3>${esc(l.nimi)}</h3><span class="muted small">${esc(l.tavoite || (last ? "" : "uusi"))}</span></div>
+      <div class="row space"><h3>${esc(l.nimi)}</h3>${(l.tavoite || !last) ? `<span class="tag">${esc(l.tavoite || "uusi")}</span>` : ""}</div>
       ${l.nimi !== l.suunniteltu ? `<div class="muted small">Korvaa: ${esc(l.suunniteltu)}</div>` : ""}
-      <div class="last">${last ? `Viimeksi ${last.k.pvm ? fiDate(last.k.pvm) : "viikko " + (last.k.viikko || "?")}: ${esc(setsText(last.sets))}` : "Ei aiempia tuloksia"}</div>`;
+      <div class="last">${last ? `Viimeksi ${last.k.pvm ? fiDate(last.k.pvm) : "viikko " + (last.k.viikko || "?")} · <b>${esc(setsText(last.sets))}</b>` : "Ei aiempia tuloksia"}</div>`;
     if (!l.ohitettu) {
       h += `<div class="hdr-labels"><span></span><span>kg</span><span>toistot</span><span></span></div>`;
       for (let si = 0; si < rows; si++) {
@@ -328,14 +340,14 @@ function renderWorkout(k) {
         const prevInRow = done.find(s => s.sarja === si);
         const kg = draft.v[`kg${li}_${si}`] ?? (d ? d.paino_kg : (prevInRow?.paino_kg ?? prevSet?.paino_kg ?? null));
         const reps = draft.v[`r${li}_${si}`] ?? (d ? d.toistot : (l.toistot?.[si] ?? prevSet?.toistot ?? null));
-        h += `<div class="set ${d ? "done" : ""}" data-si="${si}">
+        h += `<div class="set ${d ? "done" : ""} ${S._pop === `${k.id}:${li}:${si}` ? "pop" : ""}" data-si="${si}">
           <span class="n">${si + 1}${l.tyypit?.[si] === "restpause" ? "<br><small>RP</small>" : ""}</span>
           <div class="stepper"><button data-step="kg" data-d="-2.5">−</button><input inputmode="decimal" data-f="kg" value="${kg == null ? "" : fmtKg(kg)}"><button data-step="kg" data-d="2.5">+</button></div>
           <div class="stepper"><button data-step="r" data-d="-1">−</button><input inputmode="numeric" data-f="r" value="${reps ?? ""}"><button data-step="r" data-d="1">+</button></div>
           <button class="ok" data-act="${d ? "undo" : "done"}" aria-label="${d ? "Kirjattu, poista" : "Kirjaa sarja"}">✓</button></div>`;
       }
-      h += `<div class="row" style="margin-top:6px"><button class="ghost small" data-act="addset">+ sarja</button>
-        <button class="ghost small" data-act="swap">Vaihda liike</button><button class="ghost small" data-act="skip">Ohita</button></div>
+      h += `<div class="ex-actions"><button data-act="addset">+ Sarja</button>
+        <button data-act="swap">Vaihda liike</button><button data-act="skip">Ohita</button></div>
         <input data-f="note" placeholder="Huomio (valinnainen)" value="${esc(l.huomio || "")}">`;
     } else h += `<button class="ghost small" data-act="unskip">Palauta liike</button>`;
     h += `</div>`;
@@ -346,7 +358,7 @@ function renderWorkout(k) {
     <div class="row" style="margin-top:12px"><button class="primary block" id="finish">${k.tila === "kesken" ? "Treeni valmis" : "Tallenna muutokset"}</button></div>
     ${k.tila !== "kesken" ? `<button class="danger block" id="del" style="margin-top:8px">Poista treenikerta</button>` : `<button class="ghost block" id="cancel" style="margin-top:8px">Hylkää treeni</button>`}
     <datalist id="exnames">${allExerciseNames().map(n => `<option value="${esc(n)}">`).join("")}</datalist>`;
-  $view.innerHTML = h;
+  $view.innerHTML = h; S._pop = null;
   bindWorkout(k);
 }
 function persist(k) { const { id, ...data } = k; save("treenikerrat", id, data); }
@@ -385,6 +397,7 @@ function bindWorkout(k) {
         k.sarjat.push({ liikeIndex: li, liike: l.nimi, perusliike: eq.perusliike, valine: eq.valine, sarja: si + 1, tyyppi: l.tyypit?.[si] || "tyo", tavoite: l.tavoite || "",
           paino_kg: kg, toistot: r, aika_s: null, kirjattu: nowISO(), jalkikirjaus: !!(quick || late), id: uid() });
         delete draft.v[`kg${li}_${si}`]; delete draft.v[`r${li}_${si}`];
+        S._pop = `${k.id}:${li}:${si}`; navigator.vibrate?.(12);
         persist(k); render();
         if (!late) startTimer(restSeconds(k));
       } else if (act === "undo") {
@@ -413,14 +426,16 @@ function bindWorkout(k) {
   if (cancel) cancel.onclick = () => { if (!k.sarjat.length || confirm("Hylätäänkö treeni? Kirjatut sarjat poistetaan.")) { deleteDoc(userDoc("treenikerrat", k.id)); S.kerrat = S.kerrat.filter(x => x.id !== k.id); S.editId = null; render(); } };
 }
 function askExercise(title, cb) {
-  document.getElementById("expick")?.remove();
+  document.getElementById("expick-wrap")?.remove();
   const names = allExerciseNames();
-  const wrap = document.createElement("div"); wrap.className = "card"; wrap.id = "expick";
-  wrap.innerHTML = `<div class="row space"><h3>${esc(title)}</h3><button class="ghost small" id="exno">Peruuta</button></div>
-    <input id="exq" placeholder="Kirjoita liikkeen nimi" autocomplete="off" autocapitalize="sentences"><div id="exres" class="stack" style="margin-top:8px"></div>`;
-  $view.prepend(wrap); scrollTo(0, 0);
+  const outer = document.createElement("div"); outer.id = "expick-wrap";
+  outer.innerHTML = `<div class="scrim"></div><div class="glass" id="expick"><div class="row space"><h3>${esc(title)}</h3><button class="ghost small" id="exno">Peruuta</button></div>
+    <input id="exq" placeholder="Kirjoita liikkeen nimi" autocomplete="off" autocapitalize="sentences" style="margin-top:10px"><div id="exres" class="stack"></div></div>`;
+  document.body.appendChild(outer);
+  const wrap = outer.querySelector("#expick");
+  outer.querySelector(".scrim").onclick = () => { close(); render(); };
   const q = wrap.querySelector("#exq"), res = wrap.querySelector("#exres");
-  const close = () => { S._typing = false; wrap.remove(); if (S._deferred) { S._deferred = false; } };
+  const close = () => { S._typing = false; outer.remove(); S._deferred = false; };
   const done = name => { close(); if (!names.includes(name)) saveMeta({ omatLiikkeet: [...new Set([...(S.meta?.omatLiikkeet || []), name])] }); cb(name); };
   const draw = () => {
     const v = q.value.trim();
@@ -485,13 +500,14 @@ function renderHistory() {
   if (f) list = list.filter(k => (k.sarjat || []).some(s => (s.liike || "").toLowerCase().includes(f)) || (k.treeni || "").toLowerCase().includes(f));
   const dated = list.filter(k => k.pvm).sort((a, b) => sessionSortKey(b).localeCompare(sessionSortKey(a)));
   const undated = list.filter(k => !k.pvm).sort((a, b) => (b.ohjelma || "").localeCompare(a.ohjelma || "") || (b.viikko || 0) - (a.viikko || 0));
-  let h = `<h1>Historia</h1><input id="hf" placeholder="Hae liikkeellä, esim. penkki" value="${esc(S.histFilter)}">
-    <p class="muted small">${list.length} treenikertaa · ${list.reduce((a, k) => a + (k.sarjat || []).filter(s => s.tyyppi !== "merkinta" && (!f || (s.liike || "").toLowerCase().includes(f))).length, 0)} sarjaa</p><div id="hl">`;
+  const nSets = list.reduce((a, k) => a + (k.sarjat || []).filter(s => s.tyyppi !== "merkinta" && (!f || (s.liike || "").toLowerCase().includes(f))).length, 0);
+  let h = `<h1>Historia</h1><div class="stat"><span><b>${list.length}</b>treenikertaa</span><span><b>${nSets}</b>sarjaa</span></div>
+    <input id="hf" type="search" placeholder="Hae liikkeellä, esim. penkki" value="${esc(S.histFilter)}" style="margin:10px 0 4px"><div id="hl">`;
   const item = k => {
     const byEx = {};
     (k.sarjat || []).forEach(s => { if (!f || (s.liike || "").toLowerCase().includes(f)) (byEx[s.liike] = byEx[s.liike] || []).push(s); });
     const when = k.pvm ? fiDate(k.pvm) : `Viikko ${k.viikko || "?"}`;
-    return `<details class="card"><summary><div class="row space"><div><b>${when}</b> · ${esc(k.treeni || "")}<div class="muted small">${esc(k.ohjelma || "")}</div></div>
+    return `<details class="card"><summary><div class="row space" style="flex:1;align-items:flex-start"><div><b>${when}</b> · ${esc(k.treeni || "")}<div class="muted" style="font-size:14px">${esc(k.ohjelma || "")}</div></div>
       <span class="badge ${k.lahde === "sovellus" ? k.tila : "vanha"}">${k.lahde === "sovellus" ? (k.tyyppi === "oma" ? "Oma" : ({ tehty: "Tehty", osittain: "Osittain", valiin: "Väliin" }[k.tila] || k.tila)) : "Vanha"}</span></div></summary>
       ${Object.entries(byEx).map(([n, ss]) => `<div class="sets-line"><b>${esc(n)}</b>: ${esc(setsText(ss.filter(s => s.tyyppi !== "merkinta")))}${ss.filter(s => s.huomio).map(s => ` <span class="muted small">(${esc(s.huomio)})</span>`).slice(0, 2).join("")}</div>`).join("") || `<p class="muted small">Ei sarjoja</p>`}
       ${k.huomio ? `<p class="muted small">${esc(k.huomio)}</p>` : ""}

@@ -3,7 +3,8 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<meta name="theme-color" content="#111418">
+<meta name="theme-color" content="#0a0b0d" media="(prefers-color-scheme: dark)">
+<meta name="theme-color" content="#f2f2f6" media="(prefers-color-scheme: light)">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -20,12 +21,12 @@
   <span id="sync" class="sync" title="Tallennuksen tila"></span>
 </header>
 <main id="view"><p class="muted center">Ladataan…</p></main>
-<nav id="tabs" hidden>
-  <button data-tab="tanaan" class="active">Tänään</button>
-  <button data-tab="ohjelma">Ohjelma</button>
-  <button data-tab="historia">Historia</button>
-  <button data-tab="paino">Paino</button>
-  <button data-tab="vienti">Data</button>
+<nav id="tabs" class="glass" hidden>
+  <button data-tab="tanaan" class="active"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 7v10M3 9.5v5M18 7v10M21 9.5v5M6 12h12"/></svg><span>Tänään</span></button>
+  <button data-tab="ohjelma"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="5" width="16" height="15" rx="3"/><path d="M4 10h16M9 3v4M15 3v4"/></svg><span>Ohjelma</span></button>
+  <button data-tab="historia"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3.5 12a8.5 8.5 0 1 0 2.6-6.1"/><path d="M3 4v4.5h4.5M12 7.5V12l3 2"/></svg><span>Historia</span></button>
+  <button data-tab="paino"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="4" width="16" height="16" rx="4"/><path d="M8.5 10a3.5 3.5 0 0 1 7 0M12 10l1.5-1.8"/></svg><span>Paino</span></button>
+  <button data-tab="vienti"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4v10M7.5 9.5 12 14l4.5-4.5M5 19h14"/></svg><span>Data</span></button>
 </nav>
 <div id="toast" hidden></div>
 <script type="module" src="app.js"></script>

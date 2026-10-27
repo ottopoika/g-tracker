@@ -1,78 +1,206 @@
+/* Treeni – ulkoasu v0.3.0
+   Suunta: iOS 26 -henkinen "Liquid Glass" navigaatiokerroksessa, tumma ensisijainen teema,
+   tasot sävyeroilla varjojen sijaan, suuret painavat otsikot, tabulaariset numerot. */
 :root{
-  --bg:#111418; --card:#1b2027; --card2:#232a33; --line:#2e3640;
-  --text:#eef2f6; --muted:#98a3b0; --accent:#4cc38a; --accent-ink:#06210f;
-  --warn:#f0b04a; --danger:#e5645c; --blue:#6aa8ff;
-  --r:14px;
-  color-scheme: dark;
+  --bg:#0a0b0d; --s1:#141619; --s2:#1c1f23; --s3:#262a30;
+  --line:rgba(255,255,255,.07); --line2:rgba(255,255,255,.12);
+  --text:#f4f6f8; --text2:rgba(235,238,245,.66); --text3:rgba(235,238,245,.42);
+  --accent:#c8f43a; --accent-ink:#0d1400; --accent-text:#c8f43a; --accent-soft:rgba(200,244,58,.13);
+  --warn:#ffb547; --warn-soft:rgba(255,181,71,.14);
+  --danger:#ff6b6b; --danger-soft:rgba(255,107,107,.13);
+  --blue:#7cb6ff; --blue-soft:rgba(124,182,255,.14);
+  --violet:#b9a3ff; --violet-soft:rgba(185,163,255,.14);
+  --glass:rgba(28,31,36,.62); --glass-line:rgba(255,255,255,.14); --glass-hi:rgba(255,255,255,.10);
+  --r-xl:26px; --r-l:20px; --r-m:14px; --r-s:10px;
+  --ease:cubic-bezier(.2,.9,.25,1.15);
+  --tabh:64px;
+  color-scheme:dark;
 }
+@media (prefers-color-scheme:light){
+  :root{
+    --bg:#f2f2f6; --s1:#ffffff; --s2:#f0f1f4; --s3:#e4e6eb;
+    --line:rgba(0,0,0,.07); --line2:rgba(0,0,0,.12);
+    --text:#0b0c0e; --text2:rgba(60,60,67,.72); --text3:rgba(60,60,67,.45);
+    --accent:#c8f43a; --accent-ink:#0d1400; --accent-text:#4d6b00; --accent-soft:rgba(120,170,0,.13);
+    --warn:#b86e00; --warn-soft:rgba(255,160,0,.16); --danger:#d93636; --danger-soft:rgba(217,54,54,.1);
+    --blue:#1f6fe0; --blue-soft:rgba(31,111,224,.1); --violet:#6b4fd8; --violet-soft:rgba(107,79,216,.1);
+    --glass:rgba(255,255,255,.66); --glass-line:rgba(0,0,0,.08); --glass-hi:rgba(255,255,255,.7);
+    color-scheme:light;
+  }
+}
+
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
 /* iPhone: estä tuplanapautuszoomaus ja tekstin valinta painikkeissa */
 html,body,button,input,textarea,select,a,.stepper{touch-action:manipulation}
 button{-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}
-html,body{margin:0;background:var(--bg);color:var(--text);font:17px/1.4 -apple-system,BlinkMacSystemFont,"SF Pro Text",system-ui,sans-serif}
-body{padding-bottom:calc(76px + env(safe-area-inset-bottom))}
-#topbar{position:sticky;top:0;z-index:5;display:flex;justify-content:space-between;align-items:center;
-  padding:calc(10px + env(safe-area-inset-top)) 16px 10px;background:rgba(17,20,24,.95);border-bottom:1px solid var(--line)}
-#title{font-weight:700;font-size:18px}
-.sync{font-size:13px;color:var(--muted)}
-.sync.ok{color:var(--accent)} .sync.pending{color:var(--warn)} .sync.off{color:var(--danger)}
-main{padding:12px 16px 84px;max-width:640px;margin:0 auto}
-nav#tabs{position:fixed;left:0;right:0;bottom:0;z-index:5;display:grid;grid-template-columns:repeat(5,1fr);
-  background:#0c0f12;border-top:1px solid var(--line);padding-bottom:env(safe-area-inset-bottom)}
-nav#tabs button{background:none;border:0;color:var(--muted);font-size:13px;padding:14px 0 12px;font-weight:600}
-nav#tabs button.active{color:var(--accent)}
-h1{font-size:24px;margin:8px 0 4px} h2{font-size:19px;margin:18px 0 8px} h3{font-size:17px;margin:0}
-.muted{color:var(--muted)} .small{font-size:14px} .center{text-align:center}
-.card{background:var(--card);border:1px solid var(--line);border-radius:var(--r);padding:14px;margin:10px 0}
+html,body{margin:0;background:var(--bg);color:var(--text);
+  font:17px/1.42 -apple-system,BlinkMacSystemFont,"SF Pro Text","SF Pro Display",system-ui,sans-serif;
+  -webkit-font-smoothing:antialiased;letter-spacing:-.01em}
+body{min-height:100dvh}
+.num,input[inputmode],.stepper input,#timer,.week-grid,.stat b{font-variant-numeric:tabular-nums}
+
+/* ---------- lasi (vain navigaatiokerros, ajastin, ilmoitukset, paneelit) ---------- */
+.glass{background:var(--glass);-webkit-backdrop-filter:blur(24px) saturate(180%);backdrop-filter:blur(24px) saturate(180%);
+  border:1px solid var(--glass-line);box-shadow:inset 0 1px 0 var(--glass-hi),0 10px 30px rgba(0,0,0,.28)}
+@supports not ((backdrop-filter:blur(1px)) or (-webkit-backdrop-filter:blur(1px))){ .glass{background:var(--s2)} }
+
+/* ---------- yläpalkki: läpikuultava, sisältö rullaa alta ---------- */
+#topbar{position:sticky;top:0;z-index:20;display:flex;justify-content:space-between;align-items:center;
+  padding:calc(8px + env(safe-area-inset-top)) 20px 8px;
+  background:linear-gradient(var(--bg) 0%, color-mix(in srgb,var(--bg) 82%,transparent) 70%, transparent);
+  -webkit-backdrop-filter:blur(14px);backdrop-filter:blur(14px)}
+#title{font-weight:700;font-size:15px;letter-spacing:.02em;text-transform:uppercase;color:var(--text2)}
+.sync{display:inline-flex;align-items:center;gap:6px;font-size:13px;font-weight:600;color:var(--text2);
+  padding:5px 10px;border-radius:99px;background:var(--s2)}
+.sync::before{content:"";width:7px;height:7px;border-radius:50%;background:currentColor}
+.sync.ok{color:var(--accent-text)} .sync.pending{color:var(--warn)} .sync.off{color:var(--danger)}
+
+main{padding:4px 20px calc(var(--tabh) + 120px + env(safe-area-inset-bottom));max-width:640px;margin:0 auto}
+
+/* ---------- kelluva välilehtipalkki ---------- */
+nav#tabs{position:fixed;z-index:30;left:50%;transform:translateX(-50%);
+  bottom:calc(10px + env(safe-area-inset-bottom));width:min(calc(100% - 28px),520px);
+  display:grid;grid-template-columns:repeat(5,1fr);padding:6px;border-radius:999px}
+nav#tabs[hidden]{display:none}
+nav#tabs button{display:flex;flex-direction:column;align-items:center;gap:2px;background:none;border:0;min-height:52px;
+  padding:6px 0 4px;border-radius:999px;color:var(--text2);font-size:11px;font-weight:600;letter-spacing:0;transition:background .25s,color .25s}
+nav#tabs button svg{width:24px;height:24px;stroke:currentColor;fill:none;stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round}
+nav#tabs button.active{color:var(--accent-text);background:var(--accent-soft)}
+
+/* ---------- typografia ---------- */
+h1{font-size:34px;line-height:1.08;font-weight:800;letter-spacing:-.035em;margin:10px 0 6px}
+h2{font-size:22px;font-weight:750;letter-spacing:-.02em;margin:28px 0 10px}
+h3{font-size:17px;font-weight:650;letter-spacing:-.01em;margin:0}
+.eyebrow{font-size:13px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--accent-text);margin-top:6px}
+.muted{color:var(--text2)} .small{font-size:15px} .center{text-align:center}
+p{margin:6px 0}
+
+/* ---------- pinnat ---------- */
+.card{background:var(--s1);border:1px solid var(--line);border-radius:var(--r-l);padding:16px;margin:10px 0}
 .row{display:flex;gap:8px;align-items:center}
 .row.space{justify-content:space-between}
-.stack>*+*{margin-top:8px}
-button,.btn{font:inherit;border-radius:12px;border:1px solid var(--line);background:var(--card2);color:var(--text);
-  padding:12px 14px;min-height:44px;font-weight:600}
-button.primary{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
-button.danger{color:var(--danger)}
-button.ghost{background:none}
+.stack>*+*{margin-top:10px}
+
+/* ---------- painikkeet ---------- */
+button,.btn{font:inherit;font-weight:650;border-radius:var(--r-m);border:0;background:var(--s2);color:var(--text);
+  padding:12px 16px;min-height:48px;transition:transform .18s var(--ease),background .2s,opacity .2s}
+button:active{transform:scale(.97)}
+button.primary{background:var(--accent);color:var(--accent-ink);box-shadow:0 6px 22px rgba(200,244,58,.22)}
+button.danger{color:var(--danger);background:var(--danger-soft)}
+button.ghost{background:transparent;color:var(--accent-text)}
 button.block{width:100%}
-button:disabled{opacity:.45}
-input,select,textarea{font:inherit;font-size:max(16px,1em);color:var(--text);background:#0e1216;border:1px solid var(--line);border-radius:10px;padding:10px 12px;min-height:44px;width:100%}
-textarea{min-height:64px}
-label{display:block;font-size:14px;color:var(--muted);margin:10px 0 4px}
-.badge{display:inline-block;font-size:12px;font-weight:700;padding:3px 8px;border-radius:99px;background:var(--card2);color:var(--muted)}
-.badge.tehty{background:#173a28;color:var(--accent)} .badge.osittain{background:#3a3016;color:var(--warn)}
-.badge.valiin{background:#2a2f36;color:var(--muted)} .badge.kesken{background:#16304f;color:var(--blue)}
-.badge.vanha{background:#2c2440;color:#b9a2ff}
-.ex{background:var(--card);border:1px solid var(--line);border-radius:var(--r);padding:12px;margin:12px 0}
-.ex.skipped{opacity:.5}
-.ex .last{font-size:14px;color:var(--muted);margin:4px 0 8px}
-.set{display:grid;grid-template-columns:28px 1fr 1fr 52px;gap:6px;align-items:center;margin:6px 0}
-.set .n{color:var(--muted);font-size:14px;text-align:center}
-.stepper{display:grid;grid-template-columns:36px 1fr 36px;align-items:center;background:#0e1216;border:1px solid var(--line);border-radius:10px}
-.stepper button{min-height:44px;padding:0;border:0;background:none;font-size:20px;color:var(--muted)}
-.stepper input{border:0;background:none;text-align:center;padding:0;font-size:17px;min-width:0;font-weight:700;min-height:44px}
-.stepper .unit{display:none}
-.set .ok{min-height:44px;padding:0;font-size:20px}
-.set.done .ok{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
-.set.done .stepper{border-color:#2d5e45}
-.hdr-labels{display:grid;grid-template-columns:28px 1fr 1fr 52px;gap:6px;font-size:12px;color:var(--muted);text-align:center}
-.slot{display:flex;justify-content:space-between;align-items:center;gap:8px}
-.list-item{padding:12px 0;border-bottom:1px solid var(--line)}
+button.small{min-height:40px;padding:8px 12px;font-size:15px}
+button:disabled{opacity:.4}
+
+/* ---------- kentät ---------- */
+input,select,textarea{font:inherit;font-size:max(16px,1em);color:var(--text);background:var(--s2);border:1px solid transparent;
+  border-radius:var(--r-m);padding:12px 14px;min-height:48px;width:100%;transition:border-color .2s,background .2s}
+input:focus,textarea:focus{outline:none;border-color:var(--accent);background:var(--s1)}
+input::placeholder,textarea::placeholder{color:var(--text3)}
+textarea{min-height:76px;resize:vertical}
+label{display:block;font-size:13px;font-weight:600;letter-spacing:.02em;color:var(--text2);margin:14px 0 6px}
+input[type=file]{padding:10px;font-size:15px}
+
+/* ---------- merkit ---------- */
+.badge{display:inline-flex;align-items:center;font-size:12px;font-weight:700;padding:4px 9px;border-radius:99px;background:var(--s3);color:var(--text2);white-space:nowrap}
+.badge.tehty{background:var(--accent-soft);color:var(--accent-text)}
+.badge.osittain{background:var(--warn-soft);color:var(--warn)}
+.badge.valiin{background:var(--s3);color:var(--text3)}
+.badge.kesken{background:var(--blue-soft);color:var(--blue)}
+.badge.vanha{background:var(--violet-soft);color:var(--violet)}
+
+/* ---------- Tänään ---------- */
+.hero{position:relative;overflow:hidden;border-radius:var(--r-xl);padding:20px;margin:14px 0 18px;
+  background:radial-gradient(120% 90% at 100% 0%,rgba(200,244,58,.22),transparent 55%),var(--s1);border:1px solid var(--line2)}
+.hero h3{font-size:26px;font-weight:800;letter-spacing:-.03em;line-height:1.1;margin:4px 0 8px}
+.hero .preview{color:var(--text2);font-size:15px;margin-bottom:16px}
+.hero button{width:100%;min-height:54px;font-size:18px;border-radius:16px}
+.slot{display:flex;justify-content:space-between;align-items:center;gap:12px}
+.slot h3{font-size:16px}
+.slot .meta{display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin-top:4px;color:var(--text2);font-size:14px}
+.banner{background:var(--warn-soft);color:var(--warn);border-radius:var(--r-m);padding:12px 14px;margin:10px 0;font-size:15px;font-weight:600}
+
+/* ---------- treeni ---------- */
+.wo-head{display:flex;justify-content:space-between;align-items:flex-start;gap:12px}
+.ring{position:relative;width:64px;height:64px;flex:none}
+.ring svg{width:64px;height:64px;transform:rotate(-90deg)}
+.ring circle{fill:none;stroke-width:7;stroke-linecap:round}
+.ring .bg{stroke:var(--s3)} .ring .fg{stroke:var(--accent);transition:stroke-dashoffset .6s var(--ease)}
+.ring span{position:absolute;inset:0;display:grid;place-items:center;font-size:14px;font-weight:800;font-variant-numeric:tabular-nums}
+.ex{background:var(--s1);border:1px solid var(--line);border-radius:var(--r-l);padding:16px 14px 14px;margin:14px 0}
+.ex.skipped{opacity:.45}
+.ex h3{font-size:19px;font-weight:750;letter-spacing:-.02em}
+.ex .last{font-size:14px;color:var(--text2);margin:4px 0 12px}
+.ex .last b{color:var(--text);font-weight:650}
+.ex .tag{font-size:12px;font-weight:700;color:var(--text2);background:var(--s2);padding:4px 9px;border-radius:99px}
+.hdr-labels{display:grid;grid-template-columns:26px 1fr 1fr 52px;gap:8px;font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--text3);text-align:center;margin-bottom:2px}
+.set{display:grid;grid-template-columns:26px 1fr 1fr 52px;gap:8px;align-items:center;margin:8px 0}
+.set .n{color:var(--text3);font-size:14px;font-weight:700;text-align:center;line-height:1.1}
+.set .n small{font-size:10px;color:var(--warn)}
+.stepper{display:grid;grid-template-columns:38px 1fr 38px;align-items:center;background:var(--s2);border-radius:var(--r-m);border:1px solid transparent;transition:background .25s,border-color .25s}
+.stepper button{min-height:48px;padding:0;border-radius:var(--r-m);background:none;font-size:22px;font-weight:500;color:var(--text2)}
+.stepper button:active{background:var(--s3)}
+.stepper input{border:0;background:none;text-align:center;padding:0;font-size:19px;min-width:0;font-weight:750;min-height:48px;letter-spacing:-.02em}
+.stepper input:focus{background:none}
+.set .ok{min-height:48px;padding:0;font-size:20px;font-weight:800;border-radius:var(--r-m);background:var(--s2);color:var(--text3)}
+.set.done .ok{background:var(--accent);color:var(--accent-ink)}
+.set.done .stepper{background:var(--accent-soft)}
+.set.pop .ok{animation:pop .45s var(--ease)}
+.set.pop .stepper{animation:flash .6s ease}
+@keyframes pop{0%{transform:scale(.7)}60%{transform:scale(1.12)}100%{transform:scale(1)}}
+@keyframes flash{0%{box-shadow:0 0 0 0 rgba(200,244,58,.45)}100%{box-shadow:0 0 0 10px rgba(200,244,58,0)}}
+.ex-actions{display:flex;gap:4px;margin:8px -4px 6px;flex-wrap:wrap}
+.ex-actions button{min-height:38px;padding:6px 10px;font-size:14px;background:none;color:var(--text2)}
+.ex-actions button:first-child{color:var(--accent-text)}
+
+/* ---------- liikevalitsin: paneeli ---------- */
+#expick-wrap{position:fixed;inset:0;z-index:50;display:flex;flex-direction:column;justify-content:flex-start}
+#expick-wrap .scrim{position:absolute;inset:0;background:rgba(0,0,0,.45);animation:fade .25s ease}
+#expick{position:relative;margin:calc(10px + env(safe-area-inset-top)) 10px 0;max-height:78dvh;display:flex;flex-direction:column;
+  border-radius:var(--r-xl);padding:16px;animation:drop .35s var(--ease)}
+#expick h3{font-size:20px;font-weight:800}
+#exres{overflow:auto;margin-top:10px;-webkit-overflow-scrolling:touch}
+#exres button{background:var(--s2);text-align:left;justify-content:flex-start}
+#exres button.ghost{background:transparent}
+@keyframes fade{from{opacity:0}}
+@keyframes drop{from{transform:translateY(-16px) scale(.98);opacity:0}}
+
+/* ---------- ohjelma ---------- */
+.week-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(58px,1fr));gap:8px;margin:14px 0}
+.week-grid div{position:relative;overflow:hidden;background:var(--s1);border:1px solid var(--line);border-radius:var(--r-m);padding:9px 4px;text-align:center;font-size:12px;color:var(--text2)}
+.week-grid div b{display:block;font-size:15px;color:var(--text);margin-top:2px}
+.week-grid div.cur{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent) inset}
+.week-grid div.full{background:var(--accent-soft)} .week-grid div.full b{color:var(--accent-text)}
+.week-grid div.part{background:var(--warn-soft)} .week-grid div.part b{color:var(--warn)}
+details.card summary{display:flex;justify-content:space-between;align-items:center}
+details.card summary::after{content:"";width:9px;height:9px;border-right:2px solid var(--text3);border-bottom:2px solid var(--text3);transform:rotate(45deg);transition:transform .25s;margin:0 4px 4px 12px;flex:none}
+details.card[open] summary::after{transform:rotate(-135deg);margin-bottom:-4px}
+
+/* ---------- listat / historia ---------- */
+.list-item{padding:14px 0;border-bottom:1px solid var(--line)}
 .list-item:last-child{border-bottom:0}
 details summary{list-style:none;cursor:pointer}
 details summary::-webkit-details-marker{display:none}
-.sets-line{font-size:15px;margin:4px 0}
-.sets-line b{font-weight:600}
-#toast{position:fixed;left:16px;right:16px;bottom:calc(132px + env(safe-area-inset-bottom));z-index:9;background:#253041;
-  border:1px solid var(--line);border-radius:12px;padding:12px 14px;text-align:center}
-.banner{background:#2a2412;border:1px solid #4d3f17;color:#f5d58f;border-radius:12px;padding:10px 12px;margin:8px 0;font-size:15px}
-.week-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(64px,1fr));gap:6px}
-.week-grid div{background:var(--card2);border-radius:10px;padding:8px 4px;text-align:center;font-size:13px}
-.week-grid div.cur{outline:2px solid var(--accent)}
-.week-grid div.full{background:#173a28;color:var(--accent)}
-.week-grid div.part{background:#3a3016;color:var(--warn)}
+details[open]>summary{margin-bottom:10px}
+.sets-line{font-size:15px;margin:6px 0;color:var(--text2)}
+.sets-line b{font-weight:650;color:var(--text)}
+.stat{display:flex;gap:18px;margin:6px 0 4px;color:var(--text2);font-size:14px}
+.stat b{display:block;font-size:22px;color:var(--text);font-weight:800;letter-spacing:-.02em}
 
-#timer{position:fixed;left:12px;right:12px;bottom:calc(68px + env(safe-area-inset-bottom));z-index:8;display:flex;justify-content:space-between;align-items:center;
-  background:#16304f;border:1px solid #2b4f7a;border-radius:14px;padding:6px 6px 6px 14px;font-weight:700;font-variant-numeric:tabular-nums}
-#timer.over{background:#173a28;border-color:#2d5e45;color:var(--accent)}
-#timer button{min-height:40px;padding:6px 10px}
-#expick{border-color:var(--accent)}
+/* ---------- ilmoitus ja ajastin (lasi) ---------- */
+#toast{position:fixed;left:50%;transform:translateX(-50%);top:calc(56px + env(safe-area-inset-top));z-index:60;
+  max-width:calc(100% - 32px);padding:11px 18px;border-radius:999px;font-size:15px;font-weight:650;text-align:center;
+  background:var(--glass);-webkit-backdrop-filter:blur(24px) saturate(180%);backdrop-filter:blur(24px) saturate(180%);
+  border:1px solid var(--glass-line);box-shadow:0 10px 30px rgba(0,0,0,.3);animation:drop .35s var(--ease)}
+#toast[hidden]{display:none}
+#timer{position:fixed;z-index:29;left:50%;transform:translateX(-50%);width:min(calc(100% - 28px),520px);
+  bottom:calc(var(--tabh) + 22px + env(safe-area-inset-bottom));display:flex;justify-content:space-between;align-items:center;
+  border-radius:999px;padding:6px 6px 6px 18px;font-weight:750;font-size:17px;overflow:hidden;
+  background:linear-gradient(90deg,var(--blue-soft) var(--p,0%),transparent var(--p,0%)),var(--glass);
+  -webkit-backdrop-filter:blur(24px) saturate(180%);backdrop-filter:blur(24px) saturate(180%);
+  border:1px solid var(--glass-line);box-shadow:inset 0 1px 0 var(--glass-hi),0 10px 30px rgba(0,0,0,.3)}
+#timer.over{background:linear-gradient(90deg,var(--accent-soft),var(--accent-soft)),var(--glass);color:var(--accent-text)}
+#timer button{min-height:40px;padding:6px 12px;border-radius:999px;background:var(--s2);font-size:14px;color:var(--text)}
 #timer[hidden]{display:none}
+
+@media (prefers-reduced-motion:reduce){*,*::before,*::after{animation:none!important;transition:none!important}}
