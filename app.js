@@ -5,7 +5,7 @@ import {
   collection, doc, setDoc, deleteDoc, onSnapshot, writeBatch
 } from "./firebase-bundle.js";
 
-const VERSION = "0.1.1";
+const VERSION = "0.2.0";
 const firebaseConfig = {
   apiKey: "AIzaSyDTOryLjY0VBOa9DIuH02yVlxuy0JOBFKk",
   authDomain: "gym-tracker-e1050.firebaseapp.com",
@@ -68,6 +68,33 @@ function lastSetsFor(liike, excludeId) {
   }
   return best;
 }
+// Väline päätellään liikkeen nimestä. Koko nimi pysyy tunnisteena; perusliike ja väline ovat johdettuja kenttiä.
+const EQUIP = [[" smith-laitteessa", "smith"], [" levytangolla", "tanko"], [" tangolla", "tanko"], [" kp.", "kp"], [" käsipainoilla", "kp"],
+  [" jalkaprässissä", "jalkaprässi"], [" scott-penkissä", "scott-penkki"], [" laitteessa", "laite"], [" koneessa", "laite"], [" taljassa", "talja"]];
+function splitEquip(name) {
+  const n = String(name || "").trim();
+  for (const [suf, v] of EQUIP) if (n.toLowerCase().endsWith(suf)) return { perusliike: n.slice(0, n.length - suf.length).trim(), valine: v };
+  return { perusliike: n, valine: "" };
+}
+const normName = s => String(s || "").toLowerCase().replace(/käsipainoilla/g, "kp").replace(/levytangolla/g, "tangolla").replace(/[^a-zåäö0-9]+/g, " ").trim();
+function lev(a, b) {
+  const m = a.length, n = b.length; if (!m) return n; if (!n) return m;
+  let prev = Array.from({ length: n + 1 }, (_, j) => j);
+  for (let i = 1; i <= m; i++) { const cur = [i]; for (let j = 1; j <= n; j++) cur[j] = Math.min(prev[j] + 1, cur[j - 1] + 1, prev[j - 1] + (a[i - 1] === b[j - 1] ? 0 : 1)); prev = cur; }
+  return prev[n];
+}
+function similarity(q, name) {
+  const a = normName(q), b = normName(name); if (!a || !b) return 0;
+  if (a === b) return 1;
+  if (b.startsWith(a) || b.includes(" " + a)) return 0.9;
+  if (b.includes(a)) return 0.8;
+  const ta = a.split(" "), tb = b.split(" ");
+  const tokenHit = ta.filter(t => tb.some(u => u.startsWith(t) || (t.length > 3 && lev(t, u) <= 1))).length / ta.length;
+  const whole = 1 - lev(a, b) / Math.max(a.length, b.length);
+  return Math.max(whole, tokenHit * 0.85);
+}
+const fuzzy = (q, names, min = 0.55) => names.map(n => ({ n, s: similarity(q, n) })).filter(x => x.s >= min).sort((x, y) => y.s - x.s || x.n.localeCompare(y.n, "fi"));
+
 const setsText = sets => sets.map(s => (s.paino_kg != null ? fmtKg(s.paino_kg) + "×" : "") + (s.toistot ?? "") + (s.aika_s ? s.aika_s + " s" : "") + (s.tyyppi === "dropsetti" ? " (drop)" : "")).join(", ");
 
 // ---------- käynnistys ----------
@@ -102,6 +129,8 @@ function render() {
   // älä piirrä uudelleen kesken numeron kirjoittamisen
   const a = document.activeElement;
   if (a && $view.contains(a) && (a.tagName === "INPUT" || a.tagName === "TEXTAREA") && S._typing) return;
+  // liikevalitsin auki: piirretään uudelleen vasta kun se suljetaan
+  if (document.getElementById("expick")) { S._deferred = true; return; }
   const fn = { tanaan: renderToday, ohjelma: renderProgram, historia: renderHistory, paino: renderWeight, vienti: renderData }[S.tab];
   fn();
 }
@@ -131,21 +160,24 @@ function renderToday() {
   if (!p) { $view.innerHTML = `<h1>Tervetuloa</h1><p>Sovelluksessa ei ole vielä ohjelmaa. Tuo käyttöönottopaketti <b>Data</b>-välilehdellä.</p><button class="primary block" id="go">Siirry Data-välilehdelle</button>`; document.getElementById("go").onclick = () => { S.tab = "vienti"; render(); }; return; }
   const kesken = S.kerrat.find(k => k.tila === "kesken" && k.lahde === "sovellus" && k.id !== S._leave);
   if (S.editId || kesken) return renderWorkout(S.kerrat.find(k => k.id === (S.editId || kesken.id)));
+  if (S.mode === "oma") return renderNewCustom();
   const m = S.meta || {};
+  const omaBtn = `<button class="block" id="custom" style="margin-top:16px">+ Oma treeni</button><p class="muted small center">Ei siirrä ohjelman etenemistä.</p>`;
+  const bindOma = () => { const b = document.getElementById("custom"); if (b) b.onclick = () => { S.mode = "oma"; S.pickFilter = ""; render(); scrollTo(0, 0); }; };
   let h = exportBanner();
   if (!m.aloitus) {
     h += `<h1>${esc(p.nimi)}</h1><p class="muted">${p.viikkoja} viikkoa. Ohjelma etenee tehtyjen treenien mukaan, ei kalenterin.</p>
-      <button class="primary block" id="start">Aloita ohjelma tänään</button>`;
-    $view.innerHTML = h; document.getElementById("start").onclick = () => saveMeta({ ohjelmaId: p.id, aloitus: todayISO(), viikko: 1, vaihdot: [{ viikko: 1, pvm: todayISO() }] });
+      <button class="primary block" id="start">Aloita ohjelma tänään</button>${omaBtn}`;
+    $view.innerHTML = h; bindOma(); document.getElementById("start").onclick = () => saveMeta({ ohjelmaId: p.id, aloitus: todayISO(), viikko: 1, vaihdot: [{ viikko: 1, pvm: todayISO() }] });
     return;
   }
   const w = m.viikko || 1;
-  if (w > p.viikkoja) { $view.innerHTML = h + `<h1>Ohjelma suoritettu</h1><p>Hienoa! Muista viedä data iCloudiin Data-välilehdeltä.</p>`; return; }
+  if (w > p.viikkoja) { $view.innerHTML = h + `<h1>Ohjelma suoritettu</h1><p>Hienoa! Muista viedä data iCloudiin Data-välilehdeltä.</p>${omaBtn}`; bindOma(); return; }
   const wi = weekInfo(p, w);
   h += `<h1>Viikko ${w} / ${p.viikkoja}</h1><p class="muted small">${esc(wi.jakso.nimi)} · ${esc(wi.jakso.ohje)}</p>`;
   if (!wi.slots.length) {
-    h += `<div class="card"><h3>Lepoviikko</h3><p class="muted">Tällä viikolla ei ole treenejä.</p></div><button class="primary block" id="next">Siirry viikkoon ${w + 1}</button>`;
-    $view.innerHTML = h; document.getElementById("next").onclick = () => nextWeek(p, w); return;
+    h += `<div class="card"><h3>Lepoviikko</h3><p class="muted">Tällä viikolla ei ole treenejä.</p></div><button class="primary block" id="next">Siirry viikkoon ${w + 1}</button>${omaBtn}`;
+    $view.innerHTML = h; bindOma(); document.getElementById("next").onclick = () => nextWeek(p, w); return;
   }
   let firstOpen = -1;
   const slotsHtml = wi.slots.map((t, i) => {
@@ -156,8 +188,8 @@ function renderToday() {
       ${k ? (k.tila !== "valiin" ? `<button data-open="${k.id}" class="ghost">Avaa</button>` : "") : `<button data-slot="${i}" class="${i === firstOpen ? "primary" : ""}">Aloita</button>`}</div>`;
   }).join("");
   h += (firstOpen >= 0 ? `<p class="small">Seuraavaksi: <b>${esc(wi.slots[firstOpen].nimi)}</b></p>` : `<p class="small">Viikon treenit on käyty läpi.</p>`) + slotsHtml;
-  h += `<button class="block" id="next" style="margin-top:12px">Siirry viikkoon ${w + 1}${firstOpen >= 0 ? " (tekemättömät merkitään väliin jätetyiksi)" : ""}</button>`;
-  $view.innerHTML = h;
+  h += `<button class="block" id="next" style="margin-top:12px">Siirry viikkoon ${w + 1}${firstOpen >= 0 ? " (tekemättömät merkitään väliin jätetyiksi)" : ""}</button>${omaBtn}`;
+  $view.innerHTML = h; bindOma();
   $view.querySelectorAll("[data-slot]").forEach(b => b.onclick = () => startWorkout(p, w, +b.dataset.slot));
   $view.querySelectorAll("[data-open]").forEach(b => b.onclick = () => { S.editId = b.dataset.open; S._leave = null; render(); });
   document.getElementById("next").onclick = () => { if (firstOpen < 0 || confirm("Siirrytäänkö seuraavaan viikkoon? Tekemättömät treenit merkitään väliin jätetyiksi.")) nextWeek(p, w); };
@@ -184,7 +216,7 @@ function nextWeek(p, w) {
 }
 function baseSession(p, w, i, t, tila) {
   const wi = weekInfo(p, w);
-  return { ohjelmaId: p.id, ohjelma: p.nimi, jakso: wi.jakso.nimi, viikko: w, slot: i, treeniId: t.id, treeni: t.nimi,
+  return { tyyppi: "ohjelma", ohjelmaId: p.id, ohjelma: p.nimi, jakso: wi.jakso.nimi, viikko: w, slot: i, treeniId: t.id, treeni: t.nimi,
     tila, pvm: tila === "valiin" ? "" : todayISO(), alku: tila === "valiin" ? "" : nowISO(), loppu: "", huomio: "", lahde: "sovellus",
     liikkeet: t.liikkeet.map(l => ({ nimi: l.nimi, tavoite: l.tavoite, suunniteltu: l.nimi, sarjoja: l.sarjat.length, toistot: l.sarjat.map(s => s.toistot), tyypit: l.sarjat.map(s => s.tyyppi), ohitettu: false, huomio: "" })),
     sarjat: [] };
@@ -195,17 +227,88 @@ function startWorkout(p, w, i) {
   S.kerrat.push({ id, ...data }); save("treenikerrat", id, data); S.editId = id; render();
 }
 
+// ----- oma treeni -----
+function renderNewCustom() {
+  const f = (S.pickFilter || "").trim().toLowerCase();
+  const bases = S.kerrat.filter(k => k.tila !== "kesken" && k.tila !== "valiin" && k.pvm && (k.sarjat || []).some(s => s.tyyppi !== "merkinta" && s.liike))
+    .sort((a, b) => sessionSortKey(b).localeCompare(sessionSortKey(a)))
+    .filter(k => !f || (k.treeni || "").toLowerCase().includes(f) || (k.sarjat || []).some(s => (s.liike || "").toLowerCase().includes(f)) || fiDate(k.pvm).includes(f));
+  let h = `<div class="row space"><h1>Oma treeni</h1><button class="ghost" id="cback">Takaisin</button></div>
+    <p class="muted small">Oma treeni ei siirrä ohjelman etenemistä. Aloita tyhjästä tai valitse pohjaksi jokin aiempi treeni, jolloin liikkeet ja painot tulevat viime kerran tuloksista.</p>
+    <label>Nimi</label><input id="cname" value="${esc(S.customName || "Oma treeni")}">
+    <button class="primary block" id="cempty" style="margin-top:10px">Aloita tyhjä treeni</button>
+    <h2>Pohjaksi aiempi treeni</h2><input id="cf" placeholder="Hae nimellä, liikkeellä tai päivällä" value="${esc(S.pickFilter || "")}">`;
+  h += bases.slice(0, S.pickAll ? 1e9 : 25).map(k => {
+    const names = [...new Set((k.sarjat || []).filter(s => s.liike && s.tyyppi !== "merkinta").map(s => s.liike))];
+    return `<div class="card slot"><div><b>${fiDate(k.pvm)}</b> · ${esc(k.treeni || "")}<div class="muted small">${esc(names.slice(0, 4).join(", "))}${names.length > 4 ? ` +${names.length - 4}` : ""}</div></div>
+      <button data-base="${k.id}">Valitse</button></div>`;
+  }).join("") || `<p class="muted">Ei osumia.</p>`;
+  if (!S.pickAll && bases.length > 25) h += `<button class="block" id="call">Näytä kaikki (${bases.length})</button>`;
+  $view.innerHTML = h;
+  const nm = document.getElementById("cname"); nm.oninput = () => S.customName = nm.value;
+  document.getElementById("cback").onclick = () => { S.mode = null; render(); };
+  document.getElementById("cempty").onclick = () => startCustom(null);
+  const cf = document.getElementById("cf");
+  cf.oninput = () => { S.pickFilter = cf.value; clearTimeout(S._cf); S._cf = setTimeout(() => { S._typing = false; render(); const el = document.getElementById("cf"); el.focus(); el.setSelectionRange(el.value.length, el.value.length); }, 350); };
+  const ca = document.getElementById("call"); if (ca) ca.onclick = () => { S.pickAll = true; render(); };
+  $view.querySelectorAll("[data-base]").forEach(b => b.onclick = () => startCustom(S.kerrat.find(k => k.id === b.dataset.base)));
+}
+function startCustom(base) {
+  let liikkeet = [];
+  if (base) {
+    const order = [];
+    (base.sarjat || []).forEach(s => { if (s.liike && s.tyyppi !== "merkinta" && !order.includes(s.liike)) order.push(s.liike); });
+    liikkeet = order.map(n => ({ nimi: n, tavoite: "", suunniteltu: n, sarjoja: (base.sarjat || []).filter(s => s.liike === n && s.tyyppi !== "merkinta").length || 3,
+      toistot: [], tyypit: [], ohitettu: false, huomio: "" }));
+  }
+  const nimi = (S.customName || "").trim() || (base ? base.treeni : "") || "Oma treeni";
+  const id = uid();
+  const data = { tyyppi: "oma", ohjelmaId: null, ohjelma: "Oma", jakso: "", viikko: null, slot: null, treeniId: null, treeni: nimi,
+    pohjaId: base ? base.id : null, tila: "kesken", pvm: todayISO(), alku: nowISO(), loppu: "", huomio: "", lahde: "sovellus", liikkeet, sarjat: [] };
+  S.kerrat.push({ id, ...data }); save("treenikerrat", id, data);
+  S.mode = null; S.customName = ""; S.editId = id; render(); scrollTo(0, 0);
+}
+
+// ----- palautusajastin (ei-ohjaava) -----
+function restSeconds(k) {
+  if (k.tyyppi === "oma" || !k.ohjelmaId) return 90;
+  const p = S.ohjelmat[k.ohjelmaId]; const wi = p && weekInfo(p, k.viikko);
+  return wi?.jakso?.lepo_s || 90;
+}
+function startTimer(sec) {
+  S.timer = { end: Date.now() + sec * 1000, total: sec };
+  clearInterval(S._ti); S._ti = setInterval(drawTimer, 500); drawTimer();
+}
+function stopTimer() { S.timer = null; clearInterval(S._ti); drawTimer(); }
+function drawTimer() {
+  let bar = document.getElementById("timer");
+  if (!S.timer) { if (bar) bar.hidden = true; return; }
+  if (!bar) {
+    bar = document.createElement("div"); bar.id = "timer";
+    bar.innerHTML = `<span id="tlabel"></span><span class="row"><button id="tplus" class="ghost small">+30 s</button><button id="tskip" class="ghost small">Ohita</button></span>`;
+    document.body.appendChild(bar);
+    bar.querySelector("#tskip").onclick = stopTimer;
+    bar.querySelector("#tplus").onclick = () => { if (S.timer) S.timer.end += 30000; drawTimer(); };
+  }
+  bar.hidden = false;
+  const left = Math.round((S.timer.end - Date.now()) / 1000);
+  const lab = bar.querySelector("#tlabel");
+  if (left > 0) { lab.textContent = `Palautus ${Math.floor(left / 60)}:${pad(left % 60)}`; bar.classList.remove("over"); }
+  else { lab.textContent = "Palautus ohi – seuraava sarja"; bar.classList.add("over"); if (left < -20) stopTimer(); }
+}
+
 // ----- treeni-näkymä -----
 function allExerciseNames() {
   const set = new Set();
   Object.values(S.ohjelmat).forEach(p => p.jaksot.forEach(j => j.treenit.forEach(t => t.liikkeet.forEach(l => set.add(l.nimi)))));
   S.kerrat.forEach(k => (k.sarjat || []).forEach(s => s.liike && set.add(s.liike)));
+  (S.meta?.omatLiikkeet || []).forEach(n => set.add(n));
   return [...set].sort((a, b) => a.localeCompare(b, "fi"));
 }
 function renderWorkout(k) {
   if (!k) { S.editId = null; return renderToday(); }
   const draft = S.draft && S.draft.id === k.id ? S.draft : (S.draft = { id: k.id, v: {} });
-  let h = `<div class="row space"><div><h1 style="margin-bottom:0">${esc(k.treeni)}</h1><div class="muted small">Viikko ${k.viikko} · ${esc(k.jakso || "")} ${k.pvm ? "· " + fiDate(k.pvm) : ""}</div></div>
+  let h = `<div class="row space"><div><h1 style="margin-bottom:0">${esc(k.treeni)}</h1><div class="muted small">${k.tyyppi === "oma" || !k.ohjelmaId ? "Oma treeni" : `Viikko ${k.viikko} · ${esc(k.jakso || "")}`} ${k.pvm ? "· " + fiDate(k.pvm) : ""}</div></div>
     <button class="ghost" id="back">Takaisin</button></div>`;
   const p = S.ohjelmat[k.ohjelmaId]; const wi = p && weekInfo(p, k.viikko);
   if (wi) h += `<p class="muted small">${esc(wi.jakso.ohje)}</p>`;
@@ -214,7 +317,7 @@ function renderWorkout(k) {
     const last = lastSetsFor(l.nimi, k.id);
     const rows = Math.max(l.sarjoja || 0, done.length) + (draft.v["extra" + li] || 0);
     h += `<div class="ex ${l.ohitettu ? "skipped" : ""}" data-li="${li}">
-      <div class="row space"><h3>${esc(l.nimi)}</h3><span class="muted small">${esc(l.tavoite || "")}</span></div>
+      <div class="row space"><h3>${esc(l.nimi)}</h3><span class="muted small">${esc(l.tavoite || (last ? "" : "uusi"))}</span></div>
       ${l.nimi !== l.suunniteltu ? `<div class="muted small">Korvaa: ${esc(l.suunniteltu)}</div>` : ""}
       <div class="last">${last ? `Viimeksi ${last.k.pvm ? fiDate(last.k.pvm) : "viikko " + (last.k.viikko || "?")}: ${esc(setsText(last.sets))}` : "Ei aiempia tuloksia"}</div>`;
     if (!l.ohitettu) {
@@ -237,7 +340,8 @@ function renderWorkout(k) {
     } else h += `<button class="ghost small" data-act="unskip">Palauta liike</button>`;
     h += `</div>`;
   });
-  h += `<button class="ghost block" id="addex">+ Lisää liike</button>
+  if (!(k.liikkeet || []).length) h += `<p class="muted center" style="margin:24px 0">Lisää ensimmäinen liike alta.</p>`;
+  h += `<button class="${(k.liikkeet || []).length ? "ghost" : "primary"} block" id="addex">+ Lisää liike</button>
     <label>Treenin huomio</label><textarea id="knote">${esc(k.huomio || "")}</textarea>
     <div class="row" style="margin-top:12px"><button class="primary block" id="finish">${k.tila === "kesken" ? "Treeni valmis" : "Tallenna muutokset"}</button></div>
     ${k.tila !== "kesken" ? `<button class="danger block" id="del" style="margin-top:8px">Poista treenikerta</button>` : `<button class="ghost block" id="cancel" style="margin-top:8px">Hylkää treeni</button>`}
@@ -271,17 +375,25 @@ function bindWorkout(k) {
         const kg = num(row.querySelector('[data-f="kg"]').value), r = num(row.querySelector('[data-f="r"]').value);
         if (r == null && kg == null) { toast("Syötä toistot"); return; }
         k.sarjat = k.sarjat.filter(s => !(s.liikeIndex === li && s.sarja === si + 1));
-        k.sarjat.push({ liikeIndex: li, liike: l.nimi, sarja: si + 1, tyyppi: l.tyypit?.[si] || "tyo", tavoite: l.tavoite || "",
-          paino_kg: kg, toistot: r, aika_s: null, kirjattu: nowISO(), id: uid() });
+        // Jälkikirjaus: kuitattu valmiin treenin muokkauksena tai alle 15 s edellisestä kuittauksesta (useampi sarja putkeen).
+        const nowMs = Date.now();
+        const prev = k.sarjat.filter(s => s.kirjattu).sort((a, b) => Date.parse(b.kirjattu) - Date.parse(a.kirjattu))[0];
+        const quick = prev && nowMs - Date.parse(prev.kirjattu) < 15000;
+        const late = k.tila !== "kesken";
+        if (quick) prev.jalkikirjaus = true;
+        const eq = splitEquip(l.nimi);
+        k.sarjat.push({ liikeIndex: li, liike: l.nimi, perusliike: eq.perusliike, valine: eq.valine, sarja: si + 1, tyyppi: l.tyypit?.[si] || "tyo", tavoite: l.tavoite || "",
+          paino_kg: kg, toistot: r, aika_s: null, kirjattu: nowISO(), jalkikirjaus: !!(quick || late), id: uid() });
         delete draft.v[`kg${li}_${si}`]; delete draft.v[`r${li}_${si}`];
         persist(k); render();
+        if (!late) startTimer(restSeconds(k));
       } else if (act === "undo") {
         if (!confirm("Poistetaanko tämä sarja?")) return;
         k.sarjat = k.sarjat.filter(s => !(s.liikeIndex === li && s.sarja === si + 1)); persist(k); render();
       } else if (act === "addset") { draft.v["extra" + li] = (draft.v["extra" + li] || 0) + 1; render(); }
       else if (act === "skip") { l.ohitettu = true; persist(k); render(); }
       else if (act === "unskip") { l.ohitettu = false; persist(k); render(); }
-      else if (act === "swap") { askExercise(`Millä liikkeellä korvataan ${l.nimi}?`, name => { l.nimi = name; k.sarjat.forEach(s => { if (s.liikeIndex === li) s.liike = name; }); persist(k); render(); }); }
+      else if (act === "swap") { askExercise(`Millä liikkeellä korvataan ${l.nimi}?`, name => { l.nimi = name; const eq = splitEquip(name); k.sarjat.forEach(s => { if (s.liikeIndex === li) Object.assign(s, { liike: name, perusliike: eq.perusliike, valine: eq.valine }); }); persist(k); render(); }); }
     });
   });
   document.getElementById("addex").onclick = () => askExercise("Lisättävä liike", name => {
@@ -290,7 +402,10 @@ function bindWorkout(k) {
   document.getElementById("finish").onclick = () => {
     const planned = k.liikkeet.filter(l => !l.lisatty);
     const all = planned.every((l, i) => !l.ohitettu && k.sarjat.some(s => s.liikeIndex === k.liikkeet.indexOf(l)));
-    if (k.tila === "kesken") { k.tila = all ? "tehty" : (k.sarjat.length ? "osittain" : "valiin"); k.loppu = nowISO(); }
+    if (k.tila === "kesken") {
+      k.tila = k.tyyppi === "oma" ? (k.sarjat.length ? "tehty" : "valiin") : (all ? "tehty" : (k.sarjat.length ? "osittain" : "valiin"));
+      k.loppu = nowISO(); stopTimer();
+    }
     persist(k); S.editId = null; S.draft = null; toast(k.tila === "tehty" ? "Treeni tallennettu" : "Tallennettu"); render();
   };
   const del = document.getElementById("del"), cancel = document.getElementById("cancel");
@@ -298,11 +413,36 @@ function bindWorkout(k) {
   if (cancel) cancel.onclick = () => { if (!k.sarjat.length || confirm("Hylätäänkö treeni? Kirjatut sarjat poistetaan.")) { deleteDoc(userDoc("treenikerrat", k.id)); S.kerrat = S.kerrat.filter(x => x.id !== k.id); S.editId = null; render(); } };
 }
 function askExercise(title, cb) {
-  const wrap = document.createElement("div"); wrap.className = "card";
-  wrap.innerHTML = `<h3>${esc(title)}</h3><input list="exnames" id="exq" placeholder="Kirjoita tai valitse liike"><div class="row" style="margin-top:8px"><button class="primary" id="exok">OK</button><button class="ghost" id="exno">Peruuta</button></div>`;
-  $view.prepend(wrap); scrollTo(0, 0); const q = wrap.querySelector("#exq"); q.focus();
-  wrap.querySelector("#exok").onclick = () => { const v = q.value.trim(); S._typing = false; if (v) cb(v); else wrap.remove(); };
-  wrap.querySelector("#exno").onclick = () => { S._typing = false; wrap.remove(); };
+  document.getElementById("expick")?.remove();
+  const names = allExerciseNames();
+  const wrap = document.createElement("div"); wrap.className = "card"; wrap.id = "expick";
+  wrap.innerHTML = `<div class="row space"><h3>${esc(title)}</h3><button class="ghost small" id="exno">Peruuta</button></div>
+    <input id="exq" placeholder="Kirjoita liikkeen nimi" autocomplete="off" autocapitalize="sentences"><div id="exres" class="stack" style="margin-top:8px"></div>`;
+  $view.prepend(wrap); scrollTo(0, 0);
+  const q = wrap.querySelector("#exq"), res = wrap.querySelector("#exres");
+  const close = () => { S._typing = false; wrap.remove(); if (S._deferred) { S._deferred = false; } };
+  const done = name => { close(); if (!names.includes(name)) saveMeta({ omatLiikkeet: [...new Set([...(S.meta?.omatLiikkeet || []), name])] }); cb(name); };
+  const draw = () => {
+    const v = q.value.trim();
+    if (!v) { res.innerHTML = `<p class="muted small">Ohjelman, historian ja omat liikkeet (${names.length}). Kirjoita hakeaksesi.</p>`; return; }
+    const exact = names.find(n => normName(n) === normName(v));
+    const hits = fuzzy(v, names).slice(0, 8);
+    let h = hits.map(x => `<button class="block" style="text-align:left" data-n="${esc(x.n)}">${esc(x.n)}</button>`).join("");
+    if (!exact) h += `<button class="ghost block" style="text-align:left" data-new="1">+ Lisää uusi liike "${esc(v)}"</button>`;
+    res.innerHTML = h;
+    res.querySelectorAll("[data-n]").forEach(b => b.onclick = () => done(b.dataset.n));
+    const nb = res.querySelector("[data-new]");
+    if (nb) nb.onclick = () => {
+      const close = fuzzy(v, names, 0.7).slice(0, 3);
+      if (!close.length) return done(v);
+      res.innerHTML = `<p><b>Tarkoititko…?</b></p>` + close.map(x => `<button class="block" style="text-align:left" data-n="${esc(x.n)}">${esc(x.n)}</button>`).join("") +
+        `<button class="ghost block" id="exforce">Ei, lisää uusi liike "${esc(v)}"</button>`;
+      res.querySelectorAll("[data-n]").forEach(b => b.onclick = () => done(b.dataset.n));
+      res.querySelector("#exforce").onclick = () => done(v);
+    };
+  };
+  q.oninput = draw; draw(); q.focus();
+  wrap.querySelector("#exno").onclick = () => { close(); render(); };
 }
 
 // ----- Ohjelma -----
@@ -352,7 +492,7 @@ function renderHistory() {
     (k.sarjat || []).forEach(s => { if (!f || (s.liike || "").toLowerCase().includes(f)) (byEx[s.liike] = byEx[s.liike] || []).push(s); });
     const when = k.pvm ? fiDate(k.pvm) : `Viikko ${k.viikko || "?"}`;
     return `<details class="card"><summary><div class="row space"><div><b>${when}</b> · ${esc(k.treeni || "")}<div class="muted small">${esc(k.ohjelma || "")}</div></div>
-      <span class="badge ${k.lahde === "sovellus" ? k.tila : "vanha"}">${k.lahde === "sovellus" ? ({ tehty: "Tehty", osittain: "Osittain", valiin: "Väliin" }[k.tila] || k.tila) : "Vanha"}</span></div></summary>
+      <span class="badge ${k.lahde === "sovellus" ? k.tila : "vanha"}">${k.lahde === "sovellus" ? (k.tyyppi === "oma" ? "Oma" : ({ tehty: "Tehty", osittain: "Osittain", valiin: "Väliin" }[k.tila] || k.tila)) : "Vanha"}</span></div></summary>
       ${Object.entries(byEx).map(([n, ss]) => `<div class="sets-line"><b>${esc(n)}</b>: ${esc(setsText(ss.filter(s => s.tyyppi !== "merkinta")))}${ss.filter(s => s.huomio).map(s => ` <span class="muted small">(${esc(s.huomio)})</span>`).slice(0, 2).join("")}</div>`).join("") || `<p class="muted small">Ei sarjoja</p>`}
       ${k.huomio ? `<p class="muted small">${esc(k.huomio)}</p>` : ""}
       ${k.lahde === "sovellus" ? `<button class="ghost small" data-edit="${k.id}">Muokkaa</button>` : ""}</details>`;
@@ -382,7 +522,7 @@ function renderWeight() {
 }
 
 // ----- Data: vienti ja tuonti -----
-const CSV_COLS = ["pvm", "ohjelma", "jakso", "viikko", "treeni", "liike", "sarja", "tyyppi", "tavoite", "paino_kg", "toistot", "aika_s", "huomio", "kirjattu", "id", "lahde", "alkuperainen", "varmuus"];
+const CSV_COLS = ["pvm", "ohjelma", "jakso", "viikko", "treeni", "liike", "sarja", "tyyppi", "tavoite", "paino_kg", "toistot", "aika_s", "huomio", "kirjattu", "id", "lahde", "alkuperainen", "varmuus", "perusliike", "valine", "treeni_alku", "treeni_loppu", "jalkikirjaus"];
 const csvCell = v => { if (v == null) return ""; const s = String(v); return /[",\n\r]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s; };
 const toCSV = (cols, rows) => "﻿" + [cols.join(","), ...rows.map(r => cols.map(c => csvCell(r[c])).join(","))].join("\r\n") + "\r\n";
 function flatRows() {
@@ -392,7 +532,9 @@ function flatRows() {
     const l = k.liikkeet?.[s.liikeIndex];
     out.push({ pvm: k.pvm, ohjelma: k.ohjelma, jakso: k.jakso, viikko: k.viikko, treeni: k.treeni, liike: s.liike, sarja: s.sarja, tyyppi: s.tyyppi,
       tavoite: s.tavoite, paino_kg: s.paino_kg, toistot: s.toistot, aika_s: s.aika_s, huomio: [s.huomio, l?.huomio].filter(Boolean).join("; "),
-      kirjattu: s.kirjattu || "", id: s.id, lahde: k.lahde === "sovellus" ? "sovellus" : (s.lahde || k.lahde), alkuperainen: s.alkuperainen || "", varmuus: s.varmuus || "varma" });
+      kirjattu: s.kirjattu || "", id: s.id, lahde: k.lahde === "sovellus" ? "sovellus" : (s.lahde || k.lahde), alkuperainen: s.alkuperainen || "", varmuus: s.varmuus || "varma",
+      perusliike: s.perusliike ?? splitEquip(s.liike).perusliike, valine: s.valine ?? splitEquip(s.liike).valine,
+      treeni_alku: k.alku || "", treeni_loppu: k.loppu || "", jalkikirjaus: k.lahde === "sovellus" ? (s.jalkikirjaus ? 1 : 0) : "" });
   }
   return out;
 }
@@ -400,7 +542,8 @@ function sessionRows() {
   return [...S.kerrat].sort((a, b) => sessionSortKey(a).localeCompare(sessionSortKey(b))).map(k => ({
     id: k.id, pvm: k.pvm, ohjelma: k.ohjelma, jakso: k.jakso, viikko: k.viikko, treeni: k.treeni, tila: k.tila, alku: k.alku || "", loppu: k.loppu || "",
     sarjoja: (k.sarjat || []).filter(s => s.tyyppi !== "merkinta").length, korvatut: (k.liikkeet || []).filter(l => l.nimi !== l.suunniteltu).map(l => `${l.suunniteltu} → ${l.nimi}`).join("; "),
-    ohitetut: (k.liikkeet || []).filter(l => l.ohitettu).map(l => l.nimi).join("; "), huomio: k.huomio || "", lahde: k.lahde }));
+    ohitetut: (k.liikkeet || []).filter(l => l.ohitettu).map(l => l.nimi).join("; "), huomio: k.huomio || "", lahde: k.lahde,
+    tyyppi: k.lahde === "sovellus" ? (k.tyyppi || "ohjelma") : "", pohja_id: k.pohjaId || "" }));
 }
 const README = () => `# Treenidata – LUEMINUT
 
@@ -425,6 +568,12 @@ sarjat.csv-sarakkeet:
 - huomio: vapaa kommentti. kirjattu: tallennushetki.
 - lahde: sovellus = kirjattu sovelluksella; vanha_excel / vanha_muistio = harmonisoitu vanhoista merkinnöistä.
 - alkuperainen: vanhoissa riveissä alkuperäinen merkintä sellaisenaan. varmuus: varma tai tulkittu (vanhan merkinnän tulkinta epävarma).
+- perusliike, valine (v0.2.0 alkaen): liikkeen nimestä johdettu perusliike ja väline (tanko, kp, laite, smith, talja, jalkaprässi, scott-penkki; tyhjä = ei mainittu tai kehonpaino). Painot eivät ole vertailukelpoisia eri välineiden välillä (kp = paino per käsi).
+- treeni_alku, treeni_loppu: treenikerran alku- ja loppuhetki (tyhjä vanhoissa).
+- jalkikirjaus: 1 = sarja kuitattiin jälkikäteen (alle 15 s edellisestä kuittauksesta tai valmiin treenin muokkauksena), 0 = kirjattu reaaliajassa, tyhjä = vanha data.
+
+treenikerrat.csv: tyyppi = ohjelma (ohjelman mukainen) tai oma (vapaa treeni, ei siirrä ohjelman etenemistä; ohjelma = "Oma", jakso ja viikko tyhjät). pohja_id = treeni, jota käytettiin oman treenin pohjana.
+Uudet sarakkeet lisätään aina tiedoston loppuun, joten vanhojen vientien sarakkeet säilyvät samoilla paikoilla.
 `;
 async function shareFiles(files) {
   const fs = files.map(f => new File([f.data], f.name, { type: f.type }));
@@ -452,7 +601,7 @@ function renderData() {
     const d = todayISO();
     const ok = await shareFiles([
       { name: `sarjat_${d}.csv`, type: "text/csv", data: toCSV(CSV_COLS, flatRows()) },
-      { name: `treenikerrat_${d}.csv`, type: "text/csv", data: toCSV(["id", "pvm", "ohjelma", "jakso", "viikko", "treeni", "tila", "alku", "loppu", "sarjoja", "korvatut", "ohitetut", "huomio", "lahde"], sessionRows()) },
+      { name: `treenikerrat_${d}.csv`, type: "text/csv", data: toCSV(["id", "pvm", "ohjelma", "jakso", "viikko", "treeni", "tila", "alku", "loppu", "sarjoja", "korvatut", "ohitetut", "huomio", "lahde", "tyyppi", "pohja_id"], sessionRows()) },
       { name: `kehonpaino_${d}.csv`, type: "text/csv", data: toCSV(["pvm", "paino_kg", "huomio", "lahde", "id"], [...S.paino].reverse()) },
       { name: `salikaynnit_${d}.csv`, type: "text/csv", data: toCSV(["pvm", "kellonaika", "tila", "huomio", "lahde", "id"], [...S.kaynnit].sort((a, b) => a.pvm.localeCompare(b.pvm))) },
       { name: `LUEMINUT.md`, type: "text/markdown", data: README() }]);

@@ -16,7 +16,7 @@ body{padding-bottom:calc(76px + env(safe-area-inset-bottom))}
 #title{font-weight:700;font-size:18px}
 .sync{font-size:13px;color:var(--muted)}
 .sync.ok{color:var(--accent)} .sync.pending{color:var(--warn)} .sync.off{color:var(--danger)}
-main{padding:12px 16px 24px;max-width:640px;margin:0 auto}
+main{padding:12px 16px 84px;max-width:640px;margin:0 auto}
 nav#tabs{position:fixed;left:0;right:0;bottom:0;z-index:5;display:grid;grid-template-columns:repeat(5,1fr);
   background:#0c0f12;border-top:1px solid var(--line);padding-bottom:env(safe-area-inset-bottom)}
 nav#tabs button{background:none;border:0;color:var(--muted);font-size:13px;padding:14px 0 12px;font-weight:600}
@@ -61,7 +61,7 @@ details summary{list-style:none;cursor:pointer}
 details summary::-webkit-details-marker{display:none}
 .sets-line{font-size:15px;margin:4px 0}
 .sets-line b{font-weight:600}
-#toast{position:fixed;left:16px;right:16px;bottom:calc(84px + env(safe-area-inset-bottom));z-index:9;background:#253041;
+#toast{position:fixed;left:16px;right:16px;bottom:calc(132px + env(safe-area-inset-bottom));z-index:9;background:#253041;
   border:1px solid var(--line);border-radius:12px;padding:12px 14px;text-align:center}
 .banner{background:#2a2412;border:1px solid #4d3f17;color:#f5d58f;border-radius:12px;padding:10px 12px;margin:8px 0;font-size:15px}
 .week-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(64px,1fr));gap:6px}
@@ -69,3 +69,10 @@ details summary::-webkit-details-marker{display:none}
 .week-grid div.cur{outline:2px solid var(--accent)}
 .week-grid div.full{background:#173a28;color:var(--accent)}
 .week-grid div.part{background:#3a3016;color:var(--warn)}
+
+#timer{position:fixed;left:12px;right:12px;bottom:calc(68px + env(safe-area-inset-bottom));z-index:8;display:flex;justify-content:space-between;align-items:center;
+  background:#16304f;border:1px solid #2b4f7a;border-radius:14px;padding:6px 6px 6px 14px;font-weight:700;font-variant-numeric:tabular-nums}
+#timer.over{background:#173a28;border-color:#2d5e45;color:var(--accent)}
+#timer button{min-height:40px;padding:6px 10px}
+#expick{border-color:var(--accent)}
+#timer[hidden]{display:none}
