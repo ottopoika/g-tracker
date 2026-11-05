@@ -13,22 +13,28 @@ concurrency:
   cancel-in-progress: false
 jobs:
   test:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
         with: { node-version: 22 }
+      - name: Asenna riippuvuudet
+        working-directory: tests
+        run: npm install --no-audit --no-fund
+      - name: Asenna testiselain
+        working-directory: tests
+        run: npx playwright install --with-deps chromium
       - name: Aja testit
         working-directory: tests
-        run: npm install --no-audit --no-fund && npx playwright install --with-deps chromium && npm test
+        run: npm test
   deploy:
     needs: test
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     environment:
       name: github-pages
       url: ${{ steps.pages.outputs.page_url }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - name: Kokoa julkaistavat tiedostot
         run: |
           mkdir _site
