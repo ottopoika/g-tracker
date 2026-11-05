@@ -5,7 +5,7 @@ import {
   collection, doc, setDoc, deleteDoc, onSnapshot, writeBatch
 } from "./firebase-bundle.js";
 
-const VERSION = "0.4.0";
+const VERSION = "0.4.1";
 const firebaseConfig = {
   apiKey: "AIzaSyDTOryLjY0VBOa9DIuH02yVlxuy0JOBFKk",
   authDomain: "gym-tracker-e1050.firebaseapp.com",
@@ -610,6 +610,80 @@ function bindChart(root) {
     });
   });
 }
+function trendCardInner(k) {
+  const sm = metricOf(k);
+  return `${trendChart(k)}${sm.info ? `<p class="muted" style="font-size:13px">${esc(sm.info)}</p>` : ""}`;
+}
+function selectMetric(k, fromChip) {
+  S.bodyMetric = k;
+  $view.querySelectorAll("[data-metric]").forEach(el => { const on = el.dataset.metric === k; el.classList.toggle("sel", on); if (el.classList.contains("chip")) el.setAttribute("aria-pressed", on); });
+  const card = document.getElementById("trendcard");
+  if (card) { card.innerHTML = trendCardInner(k); bindChart(card); }
+  const chip = document.querySelector(`#tchips [data-metric="${k}"]`), row = document.getElementById("tchips");
+  if (chip && row) {
+    // tuo valittu siru näkyviin vaakasuunnassa ilman, että sivu hyppää pystysuunnassa
+    const cr = chip.getBoundingClientRect(), rr = row.getBoundingClientRect();
+    if (cr.left < rr.left + 20 || cr.right > rr.right - 20) row.scrollTo({ left: row.scrollLeft + (cr.left - rr.left) - (rr.width - cr.width) / 2, behavior: "smooth" });
+  }
+  if (!fromChip && card) card.scrollIntoView({ behavior: "smooth", block: "nearest" });
+}
+const GROUPS = [["koostumus", "Koostumus"], ["terveys", "Terveys ja indeksit"], ["muu", "Muut"]];
+const GROUP_OF = { rasvaton_massa: "koostumus", kokonaisvesi: "koostumus", vesiprosentti: "koostumus", luumassa: "koostumus",
+  viskeraali_taso: "terveys", viskeraali_ala: "terveys", bmi: "terveys", rasvamassaindeksi: "terveys", perusaineenvaihdunta: "terveys",
+  metabolinen_ika: "terveys", kehon_ika: "terveys", kokonaispisteet: "terveys", suositeltu_paino: "terveys", impedanssi: "muu" };
+function relAgo(pvm) {
+  const d = daysBetween(pvm, todayISO());
+  if (d <= 0) return "tänään"; if (d === 1) return "eilen"; if (d < 31) return `${d} pv sitten`;
+  const mo = Math.round(d / 30.4); if (mo < 12) return `${mo} kk sitten`;
+  const y = Math.floor(mo / 12), r = mo % 12; return `${y} v${r ? " " + r + " kk" : ""} sitten`;
+}
+function measurementCard(mm, older) {
+  const a = mm.arvot || {};
+  const muscleK = a.luurankolihas != null ? "luurankolihas" : "lihasmassa";
+  const keyCols = [["paino", "Paino"], ["rasvaprosentti", "Rasvaprosentti"], ["rasvamassa", "Rasvamassa"], [muscleK, muscleK === "luurankolihas" ? "Luurankolihas" : "Lihasmassa"]];
+  const cell = ([k, label]) => {
+    const m = metricOf(k), v = a[k];
+    if (v == null) return `<div class="kc none"><div class="kt"><div class="kl">${label}</div><div class="kd">ei mitattu</div></div><div class="kvv">–</div></div>`;
+    const prev = older.find(o => o.arvot?.[k] != null);
+    let dl = "";
+    if (prev) {
+      const d = v - prev.arvot[k], other = !m.ver && (prev.laite || "") !== (mm.laite || "");
+      const good = !m.hyva || Math.abs(d) < 1e-9 ? "neutral" : ((d > 0) === (m.hyva === "up") ? "good" : "bad");
+      const arrow = Math.abs(d) < 1e-9 ? "→" : d > 0 ? "↑" : "↓";
+      dl = `<div class="kd ${good}">${other ? `<span class="diffdev" title="eri laite">≈</span>` : ""}${arrow} ${d > 0 ? "+" : d < 0 ? "−" : "±"}${fmtN(Math.abs(d))}</div>`;
+    }
+    return `<div class="kc"><div class="kt"><div class="kl">${label}</div>${dl}</div><div class="kvv">${fmtN(v)}<span>${esc(m.u)}</span></div></div>`;
+  };
+  const shown = new Set(["paino", "rasvaprosentti", "rasvamassa", muscleK]);
+  const rest = Object.keys(a).filter(k => !shown.has(k));
+  const grouped = GROUPS.map(([g, title]) => [title, rest.filter(k => (GROUP_OF[k] || (METRICS.some(x => x.k === k) ? "koostumus" : "muu")) === g)]).filter(([, ks]) => ks.length);
+  const segs = mm.segmentit || {};
+  const segVal = sg => { const o = segs[sg] || {}; for (const c of ["rasvaton_massa", "lihasmassa", "rasvamassa"]) if (o[c] != null) return [o[c], c]; return null; };
+  const pair = (l, r, title) => {
+    const L = segVal(l), R = segVal(r); if (!L && !R) return "";
+    const mx = Math.max(L?.[0] || 0, R?.[0] || 0) || 1, bal = L && R ? Math.round(100 * Math.min(L[0], R[0]) / Math.max(L[0], R[0])) : null;
+    const fatL = segs[l]?.rasvaprosentti, fatR = segs[r]?.rasvaprosentti;
+    return `<div class="seg"><div class="seg-h"><b>${title}</b>${bal != null ? `<span class="muted">tasapaino ${bal} %</span>` : ""}</div>
+      <div class="seg-bars"><div class="sb l"><span style="width:${((L?.[0] || 0) / mx * 100).toFixed(0)}%"></span></div><div class="sb r"><span style="width:${((R?.[0] || 0) / mx * 100).toFixed(0)}%"></span></div></div>
+      <div class="seg-v"><span>O ${L ? fmtN(L[0]) : "–"} kg</span><span>V ${R ? fmtN(R[0]) : "–"} kg</span></div>
+      ${fatL != null || fatR != null ? `<div class="seg-v muted"><span>rasva ${fmtN(fatL)} %</span><span>rasva ${fmtN(fatR)} %</span></div>` : ""}</div>`;
+  };
+  const core = segVal("keskivartalo");
+  const segHtml = Object.keys(segs).length ? `<div class="grp"><div class="grp-t">Segmentit · ${esc(segVal("oikea_kasi")?.[1] === "lihasmassa" ? "lihasmassa" : "rasvaton massa")}</div>
+      ${pair("oikea_kasi", "vasen_kasi", "Kädet")}${pair("oikea_jalka", "vasen_jalka", "Jalat")}
+      ${core ? `<div class="kvrow"><span>Keskivartalo</span><b>${fmtN(core[0])} kg${segs.keskivartalo?.rasvaprosentti != null ? ` · rasva ${fmtN(segs.keskivartalo.rasvaprosentti)} %` : ""}</b></div>` : ""}</div>` : "";
+  const nMore = rest.length + (Object.keys(segs).length ? 1 : 0);
+  return `<details class="card mcard" data-id="${mm.id}" ${S.openM?.[mm.id] ? "open" : ""}><summary>
+      <div class="mhead"><div><b>${fiDate(mm.pvm)}</b> <span class="muted">· ${relAgo(mm.pvm)}</span></div><span class="badge dev">${esc(mm.laite || "Mittaus")}</span></div>
+      <div class="kgrid">${keyCols.map(cell).join("")}</div>
+      <div class="more"><span class="m-o">${nMore ? `Kaikki arvot (${rest.length}${Object.keys(segs).length ? " + segmentit" : ""})` : "Lisätiedot"}</span><span class="m-c">Piilota</span></div></summary>
+    <div class="mbody">
+      ${grouped.map(([title, ks]) => `<div class="grp"><div class="grp-t">${title}</div>${ks.map(k => `<div class="kvrow"><span>${esc(metricOf(k).n)}</span><b>${fmtN(a[k])} ${esc(metricOf(k).u)}</b></div>`).join("")}</div>`).join("")}
+      ${segHtml}
+      ${mm.huomio ? `<div class="grp"><div class="grp-t">Huomio</div><p class="muted small" style="margin:0">${esc(mm.huomio)}</p></div>` : ""}
+      <div class="mact"><button class="small" data-editm="${mm.id}">Muokkaa</button><button class="small ghost danger-t" data-delm="${mm.id}">Poista</button></div>
+    </div></details>`;
+}
 function renderBody() {
   if (S.mode === "mittaus") return renderMeasurementForm();
   const latest = [...S.mittaukset].sort((a, b) => b.pvm.localeCompare(a.pvm))[0];
@@ -627,33 +701,26 @@ function renderBody() {
   }).join("") + `</div>`;
   // trendi
   const avail = [...METRICS, ...(S.meta?.omatMittarit || [])].filter(m => seriesFor(m.k).length >= 2);
-  h += `<h2>Trendi</h2><div class="chips">${avail.map(m => `<button class="chip ${S.bodyMetric === m.k ? "sel" : ""}" data-metric="${m.k}">${esc(m.n)}</button>`).join("")}</div>`;
-  const sm = metricOf(S.bodyMetric);
-  h += `<div class="card">${trendChart(S.bodyMetric)}${sm.info ? `<p class="muted" style="font-size:13px">${esc(sm.info)}</p>` : ""}</div>`;
-  // mittaukset
-  h += `<div class="row space"><h2>Kehonkoostumus</h2><button class="small" id="addm">+ Mittaus</button></div>`;
+  h += `<h2>Trendi</h2><div class="chips" id="tchips">${avail.map(m => `<button class="chip ${S.bodyMetric === m.k ? "sel" : ""}" data-metric="${m.k}" aria-pressed="${S.bodyMetric === m.k}">${esc(m.n)}</button>`).join("")}</div>`;
+  h += `<div class="card" id="trendcard">${trendCardInner(S.bodyMetric)}</div>`;
+  // mittaukset: aikajana, aina samat päämittarit samassa järjestyksessä, muutos edelliseen, loput avattavissa
   const ms = [...S.mittaukset].sort((a, b) => b.pvm.localeCompare(a.pvm));
-  h += ms.map(mm => {
-    const keys = Object.keys(mm.arvot || {});
-    const mainKeys = keys.filter(k => metricOf(k).main), other = keys.filter(k => !metricOf(k).main);
-    const segs = mm.segmentit && Object.keys(mm.segmentit).length ? mm.segmentit : null;
-    const segCols = segs ? SEGVALS.filter(([c]) => SEGMENTS.some(([s]) => segs[s]?.[c] != null)) : [];
-    return `<details class="card"><summary><div style="flex:1"><div class="row space"><b>${fiDate(mm.pvm)}</b><span class="badge">${esc(mm.laite || "Mittaus")}</span></div>
-      <div class="mrow">${mainKeys.map(k => `<span><b>${fmtN(mm.arvot[k])}</b> ${esc(metricOf(k).u)}<br><small>${esc(metricOf(k).n.replace(" (Tanita)", ""))}</small></span>`).join("")}</div></div></summary>
-      ${other.length ? `<div class="kv">${other.map(k => `<span>${esc(metricOf(k).n)}</span><b>${fmtN(mm.arvot[k])} ${esc(metricOf(k).u)}</b>`).join("")}</div>` : ""}
-      ${segs ? `<h3 style="margin:14px 0 6px;font-size:15px">Segmentit</h3><div class="segt"><table><tr><th></th>${segCols.map(([, n, u]) => `<th>${n}<br><small>${u}</small></th>`).join("")}</tr>
-        ${SEGMENTS.filter(([s]) => segs[s]).map(([s, n]) => `<tr><td>${n}</td>${segCols.map(([c]) => `<td>${fmtN(segs[s][c])}</td>`).join("")}</tr>`).join("")}</table></div>` : ""}
-      ${mm.huomio ? `<p class="muted small">${esc(mm.huomio)}</p>` : ""}
-      <div class="row" style="margin-top:8px"><button class="small" data-editm="${mm.id}">Muokkaa</button><button class="small danger" data-delm="${mm.id}">Poista</button></div></details>`;
-  }).join("") || `<p class="muted">Ei vielä mittauksia.</p>`;
+  h += `<div class="row space sec-head"><div><h2>Kehonkoostumus</h2><div class="muted" style="font-size:14px">${ms.length} mittausta${ms.length ? ` · ${fiDate(ms[ms.length - 1].pvm)}–${fiDate(ms[0].pvm)}` : ""}</div></div><button class="small primary" id="addm">+ Mittaus</button></div>`;
+  h += ms.length ? `<div class="timeline">${ms.map((mm, i) => measurementCard(mm, ms.slice(i + 1))).join("")}</div>
+    <p class="muted foot">Muutos verrattuna edelliseen mittaukseen, jossa sama arvo on mitattu. <span class="diffdev">≈</span> = eri laite, suuntaa-antava.</p>`
+    : `<div class="card empty"><p>Ei vielä mittauksia.</p><p class="muted small">Lisää ensimmäinen kehonkoostumusmittaus, niin näet täällä muutokset ja trendit.</p></div>`;
   // punnitukset
   h += `<h2>Punnitukset</h2><div class="card"><div class="row"><input id="wkg" inputmode="decimal" placeholder="kg"><input id="wd" type="date" value="${todayISO()}"></div>
     <button class="primary block" id="wadd" style="margin-top:10px">Tallenna punnitus</button></div>`;
   h += S.paino.slice(0, S.wAll ? 1e9 : 8).map(p => `<div class="list-item row space"><span>${fiDate(p.pvm)}</span><b>${fmtKg(p.paino_kg)} kg</b>${p.lahde === "sovellus" ? `<button class="ghost small" data-del="${p.id}">Poista</button>` : `<span class="badge vanha">Vanha</span>`}</div>`).join("");
   if (!S.wAll && S.paino.length > 8) h += `<button class="ghost block" id="wall">Näytä kaikki (${S.paino.length})</button>`;
   $view.innerHTML = h;
-  $view.querySelectorAll("[data-metric]").forEach(b => b.onclick = () => { S.bodyMetric = b.dataset.metric; render(); });
+  // Mittarin vaihto päivittää vain trendikortin: valikon vieritys ja sivun paikka säilyvät.
+  $view.querySelectorAll("[data-metric]").forEach(b => b.onclick = () => selectMetric(b.dataset.metric, b.classList.contains("chip")));
+  const tc = document.getElementById("tchips");
+  if (tc) { tc.scrollLeft = S.chipScroll || 0; tc.addEventListener("scroll", () => { S.chipScroll = tc.scrollLeft; }, { passive: true }); }
   bindChart($view);
+  $view.querySelectorAll("details.mcard").forEach(d => d.ontoggle = () => { S.openM = S.openM || {}; S.openM[d.dataset.id] = d.open; });
   document.getElementById("addm").onclick = () => { S.mode = "mittaus"; S.editM = null; render(); scrollTo(0, 0); };
   $view.querySelectorAll("[data-editm]").forEach(b => b.onclick = () => { S.mode = "mittaus"; S.editM = b.dataset.editm; render(); scrollTo(0, 0); });
   $view.querySelectorAll("[data-delm]").forEach(b => b.onclick = () => { if (confirm("Poistetaanko mittaus pysyvästi?")) deleteDoc(userDoc("mittaukset", b.dataset.delm)); });
