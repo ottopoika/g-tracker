@@ -25,6 +25,13 @@ const url = `http://127.0.0.1:${server.address().port}/index.html`;
 let failed = 0;
 const check = (name, ok, detail = "") => { console.log(`${ok ? "OK  " : "FAIL"} ${name}${detail ? " – " + detail : ""}`); if (!ok) failed++; };
 
+// Julkaisun perusehdot: versiot samat ja service worker ohittaa HTTP-välimuistin (muuten iPhone jää vanhaan versioon)
+{
+  const appV = fs.readFileSync(path.join(root, "app.js"), "utf8").match(/const VERSION = "([^"]+)"/)?.[1];
+  const swSrc = fs.readFileSync(path.join(root, "sw.js"), "utf8"), swV = swSrc.match(/const VERSIO = "treeni-([^"]+)"/)?.[1];
+  check("versio: app.js ja sw.js samassa", appV && appV === swV, `${appV} / ${swV}`);
+  check("sw: verkko ensin ohittaa HTTP-välimuistin", swSrc.includes('cache: "no-cache"'));
+}
 const browser = await chromium.launch(process.env.CHROMIUM_PATH ? { executablePath: process.env.CHROMIUM_PATH } : {});
 try {
   for (const scheme of ["dark", "light"]) {

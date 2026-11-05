@@ -5,7 +5,7 @@ import {
   collection, doc, setDoc, deleteDoc, onSnapshot, writeBatch
 } from "./firebase-bundle.js";
 
-const VERSION = "0.4.1";
+const VERSION = "0.4.2";
 const firebaseConfig = {
   apiKey: "AIzaSyDTOryLjY0VBOa9DIuH02yVlxuy0JOBFKk",
   authDomain: "gym-tracker-e1050.firebaseapp.com",
@@ -41,7 +41,7 @@ const nowISO = () => { const d = new Date(), o = -d.getTimezoneOffset(), s = o >
 const fiDate = iso => { if (!iso) return ""; const [y, m, d] = iso.split("-"); return `${+d}.${+m}.${y}`; };
 const num = v => { if (v === "" || v == null) return null; const n = Number(String(v).replace(",", ".")); return Number.isFinite(n) ? n : null; };
 const fmtKg = n => n == null ? "" : (Math.round(n * 100) / 100).toString().replace(".", ",");
-function toast(msg, ms = 2200) { const t = document.getElementById("toast"); t.textContent = msg; t.hidden = false; clearTimeout(toast._t); toast._t = setTimeout(() => t.hidden = true, ms); }
+function toast(msg, ms = 2200) { const t = document.getElementById("toast"); t.onclick = null; t.textContent = msg; t.hidden = false; clearTimeout(toast._t); toast._t = setTimeout(() => t.hidden = true, ms); }
 const userCol = name => collection(db, "users", S.user.uid, name);
 const userDoc = (name, id) => doc(db, "users", S.user.uid, name, id);
 function save(name, id, data) { setDoc(userDoc(name, id), data).catch(e => toast("Tallennus epäonnistui: " + e.code)); }
@@ -907,4 +907,18 @@ async function importPackage(pkg) {
 }
 
 // ---------- offline-välimuisti ----------
-if ("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js").catch(() => {});
+// Päivitykset: sw.js haetaan aina palvelimelta, ja uutta versiota tarkistetaan, kun sovellus palaa taustalta (iOS ei lataa PWA:ta uudelleen).
+// Kun uusi versio ottaa ohjat, sivu ladataan uudelleen – paitsi kesken treenin tai lomakkeen, jolloin näytetään ilmoitus.
+if ("serviceWorker" in navigator) {
+  const hadController = !!navigator.serviceWorker.controller;
+  navigator.serviceWorker.register("sw.js", { updateViaCache: "none" }).then(reg => {
+    document.addEventListener("visibilitychange", () => { if (document.visibilityState === "visible") reg.update().catch(() => {}); });
+  }).catch(() => {});
+  navigator.serviceWorker.addEventListener("controllerchange", () => {
+    if (!hadController || S._reloading) return;
+    const busy = S.editId || S.mode || S._typing || S.timer;
+    if (!busy) { S._reloading = true; location.reload(); return; }
+    toast("Uusi versio saatavilla – napauta päivittääksesi", 15000);
+    document.getElementById("toast").onclick = () => location.reload();
+  });
+}
