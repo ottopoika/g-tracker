@@ -13,7 +13,7 @@
   --glass:rgba(28,31,36,.62); --glass-line:rgba(255,255,255,.14); --glass-hi:rgba(255,255,255,.10);
   --r-xl:26px; --r-l:20px; --r-m:14px; --r-s:10px;
   --ease:cubic-bezier(.2,.9,.25,1.15);
-  --tabh:64px;
+  --tabh:64px; --chart:#c8f43a;
   color-scheme:dark;
 }
 @media (prefers-color-scheme:light){
@@ -24,7 +24,7 @@
     --accent:#c8f43a; --accent-ink:#0d1400; --accent-text:#4d6b00; --accent-soft:rgba(120,170,0,.13);
     --warn:#b86e00; --warn-soft:rgba(255,160,0,.16); --danger:#d93636; --danger-soft:rgba(217,54,54,.1);
     --blue:#1f6fe0; --blue-soft:rgba(31,111,224,.1); --violet:#6b4fd8; --violet-soft:rgba(107,79,216,.1);
-    --glass:rgba(255,255,255,.66); --glass-line:rgba(0,0,0,.08); --glass-hi:rgba(255,255,255,.7);
+    --glass:rgba(255,255,255,.66); --glass-line:rgba(0,0,0,.08); --glass-hi:rgba(255,255,255,.7); --chart:#6a9300;
     color-scheme:light;
   }
 }
@@ -204,3 +204,53 @@ details[open]>summary{margin-bottom:10px}
 #timer[hidden]{display:none}
 
 @media (prefers-reduced-motion:reduce){*,*::before,*::after{animation:none!important;transition:none!important}}
+
+/* ---------- v0.4.0: viikkolistan seuraava treeni ---------- */
+.slot.next{border-color:var(--accent);background:linear-gradient(90deg,var(--accent-soft),transparent 70%),var(--s1);box-shadow:0 0 0 1px var(--accent) inset}
+.slot.next h3{color:var(--text)}
+.badge.nextb{background:var(--accent);color:var(--accent-ink)}
+.slot.is-tehty h3,.slot.is-valiin h3{color:var(--text2)}
+
+/* ---------- v0.4.0: Keho ---------- */
+.tiles{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:12px 0 4px}
+.tile{display:block;text-align:left;background:var(--s1);border:1px solid var(--line);border-radius:var(--r-l);padding:14px 14px 10px;min-height:0;font-weight:400;color:var(--text)}
+.tile.sel{border-color:var(--accent)}
+.tl-l{font-size:13px;font-weight:650;color:var(--text2)}
+.tl-v{font-size:28px;font-weight:800;letter-spacing:-.03em;font-variant-numeric:tabular-nums;margin-top:2px}
+.tl-v span{font-size:15px;font-weight:600;color:var(--text2)}
+.tl-d{font-size:13px;font-weight:700;margin-top:2px;color:var(--text2);font-variant-numeric:tabular-nums}
+.tl-d span{font-weight:500;color:var(--text3)}
+.tl-d.good{color:var(--accent-text)} .tl-d.bad{color:var(--warn)}
+.spark{display:block;width:100%;height:34px;margin-top:6px}
+.spark .sl{fill:none;stroke:var(--text3);stroke-width:2;stroke-linejoin:round;stroke-linecap:round}
+.spark .sd{fill:var(--chart);stroke:var(--s1);stroke-width:2}
+.chips{display:flex;gap:6px;overflow-x:auto;padding-bottom:4px;margin:0 -20px;padding-left:20px;padding-right:20px;scrollbar-width:none}
+.chips::-webkit-scrollbar{display:none}
+.chip{flex:none;min-height:36px;padding:6px 12px;border-radius:999px;font-size:14px;font-weight:650;background:var(--s2);color:var(--text2)}
+.chip.sel{background:var(--accent);color:var(--accent-ink)}
+.chartwrap{position:relative}
+.chart{width:100%;height:auto;display:block}
+.chart .grid{stroke:var(--line2);stroke-width:1}
+.chart .ax{fill:var(--text3);font-size:11px;font-variant-numeric:tabular-nums}
+.chart .tl{stroke:var(--chart);stroke-width:2;stroke-linecap:round}
+.chart .tl.dash{stroke-dasharray:4 5;opacity:.7}
+.chart .tp{fill:var(--chart);stroke:var(--s1);stroke-width:2}
+.chart .tp.punnitus{fill:var(--text2)}
+.chart .hit{fill:transparent;cursor:pointer}
+.chart .lbl{fill:var(--text);font-size:12px;font-weight:700}
+.tip{position:absolute;z-index:3;min-width:140px;padding:8px 10px;border-radius:12px;font-size:13px;line-height:1.35;pointer-events:none;
+  background:var(--glass);-webkit-backdrop-filter:blur(20px);backdrop-filter:blur(20px);border:1px solid var(--glass-line)}
+.tip[hidden]{display:none}
+.mrow{display:flex;gap:16px;flex-wrap:wrap;margin-top:8px;font-size:14px;color:var(--text2);font-variant-numeric:tabular-nums}
+.mrow b{font-size:18px;color:var(--text);font-weight:750}
+.mrow small{font-size:12px;color:var(--text3)}
+.kv{display:grid;grid-template-columns:1fr auto;gap:8px 12px;font-size:14px;color:var(--text2)}
+.kv b{color:var(--text);font-weight:650;text-align:right;font-variant-numeric:tabular-nums}
+.segt{overflow-x:auto;margin:0 -4px}
+.segt table{border-collapse:collapse;width:100%;font-size:13px;font-variant-numeric:tabular-nums}
+.segt th{font-weight:650;color:var(--text3);text-align:right;padding:4px;font-size:12px;line-height:1.2}
+.segt td{text-align:right;padding:5px 4px;border-top:1px solid var(--line)}
+.segt td:first-child{text-align:left;color:var(--text2);white-space:nowrap}
+.segt input{min-height:38px;padding:6px;text-align:right;font-size:16px;min-width:56px}
+.mgrid{display:grid;grid-template-columns:1fr 1fr;gap:0 10px}
+select{appearance:none;-webkit-appearance:none}

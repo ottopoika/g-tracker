@@ -5,7 +5,7 @@ import {
   collection, doc, setDoc, deleteDoc, onSnapshot, writeBatch
 } from "./firebase-bundle.js";
 
-const VERSION = "0.3.0";
+const VERSION = "0.4.0";
 const firebaseConfig = {
   apiKey: "AIzaSyDTOryLjY0VBOa9DIuH02yVlxuy0JOBFKk",
   authDomain: "gym-tracker-e1050.firebaseapp.com",
@@ -22,7 +22,7 @@ const db = initializeFirestore(fbApp, { localCache: persistentLocalCache({ tabMa
 // ---------- tila ----------
 const S = {
   user: null, tab: "tanaan",
-  ohjelmat: {}, meta: null, kerrat: [], paino: [], kaynnit: [],
+  ohjelmat: {}, meta: null, kerrat: [], paino: [], kaynnit: [], mittaukset: [],
   pending: false, loaded: { ohjelmat: false, meta: false, kerrat: false },
   histFilter: "", editId: null
 };
@@ -111,6 +111,7 @@ onAuthStateChanged(auth, user => {
     S.pending = snap.metadata.hasPendingWrites; S.loaded.kerrat = true; updateSync(); render();
   }, onErr));
   unsub.push(onSnapshot(userCol("kehonpaino"), snap => { S.paino = snap.docs.map(d => ({ id: d.id, ...d.data() })).sort((a, b) => b.pvm.localeCompare(a.pvm)); render(); }, onErr));
+  unsub.push(onSnapshot(userCol("mittaukset"), snap => { S.mittaukset = snap.docs.map(d => ({ id: d.id, ...d.data() })); render(); }, onErr));
   unsub.push(onSnapshot(userCol("kaynnit"), snap => { S.kaynnit = snap.docs.map(d => ({ id: d.id, ...d.data() })); }, onErr));
 });
 function updateSync() {
@@ -119,7 +120,7 @@ function updateSync() {
   else { $sync.textContent = "Tallennettu"; $sync.className = "sync ok"; }
 }
 addEventListener("online", updateSync); addEventListener("offline", updateSync);
-$tabs.addEventListener("click", e => { const b = e.target.closest("button[data-tab]"); if (!b) return; S.tab = b.dataset.tab; S.editId = null; render(); scrollTo(0, 0); });
+$tabs.addEventListener("click", e => { const b = e.target.closest("button[data-tab]"); if (!b) return; S.tab = b.dataset.tab; S.editId = null; if (S.mode === "mittaus") { S.mode = null; S.mform = null; } render(); scrollTo(0, 0); });
 
 // ---------- render ----------
 function render() {
@@ -131,7 +132,7 @@ function render() {
   if (a && $view.contains(a) && (a.tagName === "INPUT" || a.tagName === "TEXTAREA") && S._typing) return;
   // liikevalitsin auki: piirretään uudelleen vasta kun se suljetaan
   if (document.getElementById("expick-wrap")) { S._deferred = true; return; }
-  const fn = { tanaan: renderToday, ohjelma: renderProgram, historia: renderHistory, paino: renderWeight, vienti: renderData }[S.tab];
+  const fn = { tanaan: renderToday, ohjelma: renderProgram, historia: renderHistory, paino: renderBody, vienti: renderData }[S.tab];
   fn();
 }
 $view.addEventListener("focusin", e => { if (e.target.matches("input,textarea")) S._typing = true; });
@@ -183,10 +184,10 @@ function renderToday() {
   wi.slots.forEach((t, i) => { if (firstOpen < 0 && !sessionForSlot(p, w, i)) firstOpen = i; });
   const slotsHtml = wi.slots.map((t, i) => {
     const k = sessionForSlot(p, w, i);
-    if (i === firstOpen) return "";
     const st = k ? `<span class="badge ${k.tila}">${{ tehty: "Tehty", osittain: "Osittain", valiin: "Väliin jätetty", kesken: "Kesken" }[k.tila]}${k.pvm ? " " + fiDate(k.pvm) : ""}</span>` : "";
-    return `<div class="card slot"><div><h3>${esc(t.nimi)}</h3><div class="meta">${t.liikkeet.length} liikettä ${st}</div></div>
-      ${k ? (k.tila !== "valiin" ? `<button data-open="${k.id}" class="small">Avaa</button>` : "") : `<button data-slot="${i}" class="small">Aloita</button>`}</div>`;
+    const isNext = i === firstOpen;
+    return `<div class="card slot ${isNext ? "next" : ""} ${k ? "is-" + k.tila : ""}"><div><h3>${esc(t.nimi)}</h3><div class="meta">${isNext ? `<span class="badge nextb">Seuraavaksi</span>` : ""}${t.liikkeet.length} liikettä ${st}</div></div>
+      ${k ? (k.tila !== "valiin" ? `<button data-open="${k.id}" class="small">Avaa</button>` : "") : `<button data-slot="${i}" class="small ${isNext ? "primary" : ""}">Aloita</button>`}</div>`;
   }).join("");
   if (firstOpen >= 0) {
     const t = wi.slots[firstOpen];
@@ -523,18 +524,194 @@ function renderHistory() {
   $view.querySelectorAll("[data-edit]").forEach(b => b.onclick = () => { S.editId = b.dataset.edit; S.tab = "tanaan"; render(); scrollTo(0, 0); });
 }
 
-// ----- Paino -----
-function renderWeight() {
-  let h = `<h1>Kehonpaino</h1><div class="card"><div class="row"><input id="wkg" inputmode="decimal" placeholder="kg"><input id="wd" type="date" value="${todayISO()}"></div>
-    <button class="primary block" id="wadd" style="margin-top:8px">Tallenna</button></div>`;
-  h += S.paino.map(p => `<div class="list-item row space"><span>${fiDate(p.pvm)}</span><b>${fmtKg(p.paino_kg)} kg</b>${p.lahde === "sovellus" ? `<button class="ghost small" data-del="${p.id}">Poista</button>` : `<span class="badge vanha">Vanha</span>`}</div>`).join("");
+// ----- Keho: punnitukset + kehonkoostumusmittaukset -----
+// Mittareiden luettelo. Eri laitteet antavat eri arvoja, joten tallennetaan vain mitatut arvot avain–arvo-pareina.
+// "ver": mittari, jota voi verrata eri laitteiden välillä suuntaa-antavasti. "hyva": up = kasvu hyvä, down = lasku hyvä, "" = neutraali.
+const METRICS = [
+  { k: "paino", n: "Paino", u: "kg", ver: 1, hyva: "", main: 1 },
+  { k: "rasvaprosentti", n: "Rasvaprosentti", u: "%", hyva: "down", main: 1 },
+  { k: "rasvamassa", n: "Rasvamassa", u: "kg", hyva: "down", main: 1 },
+  { k: "lihasmassa", n: "Lihasmassa (Tanita)", u: "kg", hyva: "up", main: 1, info: "Tanita-vaa'an lihasmassa sisältää myös sileän lihaksen ja veden. Ei vertailukelpoinen luurankolihasmassaan." },
+  { k: "luurankolihas", n: "Luurankolihasmassa", u: "kg", hyva: "up", main: 1, info: "InBody-tyyppisten laitteiden (esim. Puhti) lihasmassa. Ei vertailukelpoinen Tanitan lihasmassaan." },
+  { k: "rasvaton_massa", n: "Rasvaton massa", u: "kg", hyva: "up" },
+  { k: "viskeraali_taso", n: "Viskeraalirasva (taso)", u: "", hyva: "down", info: "Tanitan asteikko 1–59." },
+  { k: "viskeraali_ala", n: "Viskeraalirasva (VFA)", u: "cm²", hyva: "down", info: "Sisäelinrasvan pinta-ala, InBody-tyyppiset laitteet." },
+  { k: "bmi", n: "Painoindeksi", u: "", ver: 1, hyva: "" },
+  { k: "rasvamassaindeksi", n: "Rasvamassaindeksi", u: "kg/m²", hyva: "down" },
+  { k: "kokonaisvesi", n: "Kehon vesi", u: "kg", hyva: "" },
+  { k: "vesiprosentti", n: "Vesiprosentti", u: "%", hyva: "" },
+  { k: "luumassa", n: "Luumassa", u: "kg", hyva: "" },
+  { k: "perusaineenvaihdunta", n: "Perusaineenvaihdunta", u: "kcal", hyva: "" },
+  { k: "metabolinen_ika", n: "Metabolinen ikä", u: "v", hyva: "down" },
+  { k: "kehon_ika", n: "Kehon ikä", u: "v", hyva: "down" },
+  { k: "kokonaispisteet", n: "Kehon pisteet", u: "", hyva: "up" },
+  { k: "suositeltu_paino", n: "Suositeltu paino", u: "kg", ver: 1, hyva: "" },
+  { k: "impedanssi", n: "Impedanssi", u: "Ω", hyva: "" }
+];
+const SEGMENTS = [["oikea_kasi", "Oikea käsi"], ["vasen_kasi", "Vasen käsi"], ["keskivartalo", "Keskivartalo"], ["oikea_jalka", "Oikea jalka"], ["vasen_jalka", "Vasen jalka"]];
+const SEGVALS = [["rasvaprosentti", "Rasva %", "%"], ["rasvamassa", "Rasva", "kg"], ["rasvaton_massa", "Rasvaton", "kg"], ["lihasmassa", "Lihas", "kg"], ["suhde_pros", "Suhde", "%"]];
+const metricOf = k => METRICS.find(m => m.k === k) || (S.meta?.omatMittarit || []).find(m => m.k === k) || { k, n: k.replace(/_/g, " "), u: "", hyva: "" };
+const fmtN = (v, d = 1) => v == null ? "–" : (Math.round(v * 10 ** d) / 10 ** d).toString().replace(".", ",");
+// Mittauspisteet yhdelle mittarille: kehonkoostumusmittaukset + painolle myös punnitukset.
+function seriesFor(k) {
+  const pts = S.mittaukset.filter(m => m.arvot?.[k] != null).map(m => ({ pvm: m.pvm, v: m.arvot[k], laite: m.laite || "", id: m.id, src: "mittaus" }));
+  if (k === "paino") S.paino.forEach(p => pts.push({ pvm: p.pvm, v: p.paino_kg, laite: "punnitus", id: p.id, src: "punnitus" }));
+  return pts.filter(p => p.pvm).sort((a, b) => a.pvm.localeCompare(b.pvm));
+}
+const daysBetween = (a, b) => Math.round((Date.parse(b) - Date.parse(a)) / 864e5);
+function deltaInfo(k) {
+  const pts = seriesFor(k); if (pts.length < 2) return null;
+  const last = pts[pts.length - 1], prev = pts[pts.length - 2], m = metricOf(k);
+  const d = last.v - prev.v, sameDevice = !!m.ver || last.laite === prev.laite || last.src === "punnitus" || prev.src === "punnitus";
+  const good = !m.hyva || Math.abs(d) < 1e-9 ? "neutral" : ((d > 0) === (m.hyva === "up") ? "good" : "bad");
+  return { d, prev, last, good, sameDevice, days: daysBetween(prev.pvm, last.pvm) };
+}
+const ago = days => days < 45 ? `${days} pv` : days < 600 ? `${Math.round(days / 30.4)} kk` : `${(days / 365).toFixed(1).replace(".", ",")} v`;
+function sparkSVG(pts, w = 120, h = 34) {
+  if (pts.length < 2) return "";
+  const t0 = Date.parse(pts[0].pvm), t1 = Date.parse(pts[pts.length - 1].pvm) || t0 + 1;
+  const vs = pts.map(p => p.v), lo = Math.min(...vs), hi = Math.max(...vs), pad = (hi - lo) * 0.15 || 1;
+  const X = p => 4 + (w - 8) * ((Date.parse(p.pvm) - t0) / ((t1 - t0) || 1)), Y = v => h - 4 - (h - 8) * ((v - (lo - pad)) / ((hi + pad) - (lo - pad)));
+  const d = pts.map((p, i) => `${i ? "L" : "M"}${X(p).toFixed(1)},${Y(p.v).toFixed(1)}`).join("");
+  const L = pts[pts.length - 1];
+  return `<svg class="spark" viewBox="0 0 ${w} ${h}" aria-hidden="true"><path d="${d}" class="sl"/><circle cx="${X(L).toFixed(1)}" cy="${Y(L.v).toFixed(1)}" r="3.5" class="sd"/></svg>`;
+}
+function trendChart(k) {
+  const pts = seriesFor(k), m = metricOf(k);
+  if (pts.length < 2) return `<p class="muted small">Tarvitaan vähintään kaksi mittausta trendin piirtämiseen.</p>`;
+  const W = 340, H = 180, L = 40, R = 12, T = 14, B = 26;
+  const t0 = Date.parse(pts[0].pvm), t1 = Date.parse(pts[pts.length - 1].pvm);
+  const vs = pts.map(p => p.v); let lo = Math.min(...vs), hi = Math.max(...vs); const pad = (hi - lo) * 0.12 || Math.max(1, hi * 0.02); lo -= pad; hi += pad;
+  const X = p => L + (W - L - R) * ((Date.parse(p.pvm) - t0) / ((t1 - t0) || 1)), Y = v => T + (H - T - B) * (1 - (v - lo) / (hi - lo));
+  const ticks = [lo + (hi - lo) * 0.1, (lo + hi) / 2, hi - (hi - lo) * 0.1];
+  const yrs = []; for (let y = new Date(t0).getFullYear() + 1; y <= new Date(t1).getFullYear(); y++) yrs.push(y);
+  let g = `<svg class="chart" viewBox="0 0 ${W} ${H}" role="img" aria-label="${esc(m.n)} ajan yli">`;
+  ticks.forEach(v => g += `<line x1="${L}" x2="${W - R}" y1="${Y(v)}" y2="${Y(v)}" class="grid"/><text x="${L - 6}" y="${Y(v) + 4}" class="ax" text-anchor="end">${fmtN(v, hi - lo < 5 ? 1 : 0)}</text>`);
+  yrs.forEach(y => { const x = L + (W - L - R) * ((Date.parse(`${y}-01-01`) - t0) / ((t1 - t0) || 1)); g += `<text x="${x}" y="${H - 8}" class="ax" text-anchor="middle">${y}</text>`; });
+  // viiva: katkoviiva kun laite vaihtuu (ei vertailukelpoinen suoraan)
+  for (let i = 1; i < pts.length; i++) {
+    const a = pts[i - 1], b = pts[i], same = !!m.ver || a.laite === b.laite || a.src === "punnitus" || b.src === "punnitus";
+    g += `<line x1="${X(a)}" y1="${Y(a.v)}" x2="${X(b)}" y2="${Y(b.v)}" class="tl ${same ? "" : "dash"}"/>`;
+  }
+  pts.forEach((p, i) => g += `<circle cx="${X(p)}" cy="${Y(p.v)}" r="${p.src === "punnitus" ? 3 : 5}" class="tp ${p.src}" data-i="${i}"/><circle cx="${X(p)}" cy="${Y(p.v)}" r="16" class="hit" data-i="${i}"/>`);
+  const last = pts[pts.length - 1];
+  g += `<text x="${Math.min(X(last), W - R)}" y="${Y(last.v) - 10}" class="lbl" text-anchor="end">${fmtN(last.v)} ${esc(m.u)}</text></svg>`;
+  return `<div class="chartwrap" data-k="${k}">${g}<div class="tip" hidden></div></div>
+    <p class="muted" style="font-size:13px">${!m.ver && pts.some((p, i) => i && p.laite !== pts[i - 1].laite && p.src !== "punnitus" && pts[i - 1].src !== "punnitus") ? "Katkoviiva = eri laite, vertaile suuntaa-antavasti. " : ""}${k === "paino" ? "Pienet pisteet = punnitukset, isot = kehonkoostumusmittaukset." : ""}</p>`;
+}
+function bindChart(root) {
+  root.querySelectorAll(".chartwrap").forEach(w => {
+    const pts = seriesFor(w.dataset.k), m = metricOf(w.dataset.k), tip = w.querySelector(".tip");
+    w.querySelectorAll(".hit").forEach(c => c.onclick = () => {
+      const p = pts[+c.dataset.i]; tip.hidden = false;
+      tip.innerHTML = `<b>${fmtN(p.v)} ${esc(m.u)}</b><br>${fiDate(p.pvm)} · ${esc(p.src === "punnitus" ? "punnitus" : p.laite || "mittaus")}`;
+      const r = w.getBoundingClientRect(), cr = c.getBoundingClientRect();
+      tip.style.left = Math.max(4, Math.min(r.width - 150, cr.left - r.left - 60)) + "px"; tip.style.top = Math.max(0, cr.top - r.top - 54) + "px";
+    });
+  });
+}
+function renderBody() {
+  if (S.mode === "mittaus") return renderMeasurementForm();
+  const latest = [...S.mittaukset].sort((a, b) => b.pvm.localeCompare(a.pvm))[0];
+  const muscleKey = latest?.arvot?.luurankolihas != null ? "luurankolihas" : "lihasmassa";
+  const tiles = ["paino", "rasvaprosentti", "rasvamassa", muscleKey];
+  if (!S.bodyMetric) S.bodyMetric = "rasvaprosentti";
+  let h = `<h1>Keho</h1>`;
+  h += `<div class="tiles">` + tiles.map(k => {
+    const pts = seriesFor(k), m = metricOf(k), last = pts[pts.length - 1], di = deltaInfo(k);
+    if (!last) return `<div class="tile"><div class="tl-l">${esc(m.n)}</div><div class="tl-v">–</div></div>`;
+    return `<button class="tile ${S.bodyMetric === k ? "sel" : ""}" data-metric="${k}"><div class="tl-l">${esc(m.n.replace(" (Tanita)", ""))}</div>
+      <div class="tl-v">${fmtN(last.v)}<span> ${esc(m.u)}</span></div>
+      ${di ? `<div class="tl-d ${di.good}">${di.d > 0 ? "+" : di.d < 0 ? "−" : "±"}${fmtN(Math.abs(di.d))} ${esc(m.u)} <span>/ ${ago(di.days)}${di.sameDevice ? "" : " · eri laite"}</span></div>` : `<div class="tl-d"><span>${fiDate(last.pvm)}</span></div>`}
+      ${sparkSVG(pts)}</button>`;
+  }).join("") + `</div>`;
+  // trendi
+  const avail = [...METRICS, ...(S.meta?.omatMittarit || [])].filter(m => seriesFor(m.k).length >= 2);
+  h += `<h2>Trendi</h2><div class="chips">${avail.map(m => `<button class="chip ${S.bodyMetric === m.k ? "sel" : ""}" data-metric="${m.k}">${esc(m.n)}</button>`).join("")}</div>`;
+  const sm = metricOf(S.bodyMetric);
+  h += `<div class="card">${trendChart(S.bodyMetric)}${sm.info ? `<p class="muted" style="font-size:13px">${esc(sm.info)}</p>` : ""}</div>`;
+  // mittaukset
+  h += `<div class="row space"><h2>Kehonkoostumus</h2><button class="small" id="addm">+ Mittaus</button></div>`;
+  const ms = [...S.mittaukset].sort((a, b) => b.pvm.localeCompare(a.pvm));
+  h += ms.map(mm => {
+    const keys = Object.keys(mm.arvot || {});
+    const mainKeys = keys.filter(k => metricOf(k).main), other = keys.filter(k => !metricOf(k).main);
+    const segs = mm.segmentit && Object.keys(mm.segmentit).length ? mm.segmentit : null;
+    const segCols = segs ? SEGVALS.filter(([c]) => SEGMENTS.some(([s]) => segs[s]?.[c] != null)) : [];
+    return `<details class="card"><summary><div style="flex:1"><div class="row space"><b>${fiDate(mm.pvm)}</b><span class="badge">${esc(mm.laite || "Mittaus")}</span></div>
+      <div class="mrow">${mainKeys.map(k => `<span><b>${fmtN(mm.arvot[k])}</b> ${esc(metricOf(k).u)}<br><small>${esc(metricOf(k).n.replace(" (Tanita)", ""))}</small></span>`).join("")}</div></div></summary>
+      ${other.length ? `<div class="kv">${other.map(k => `<span>${esc(metricOf(k).n)}</span><b>${fmtN(mm.arvot[k])} ${esc(metricOf(k).u)}</b>`).join("")}</div>` : ""}
+      ${segs ? `<h3 style="margin:14px 0 6px;font-size:15px">Segmentit</h3><div class="segt"><table><tr><th></th>${segCols.map(([, n, u]) => `<th>${n}<br><small>${u}</small></th>`).join("")}</tr>
+        ${SEGMENTS.filter(([s]) => segs[s]).map(([s, n]) => `<tr><td>${n}</td>${segCols.map(([c]) => `<td>${fmtN(segs[s][c])}</td>`).join("")}</tr>`).join("")}</table></div>` : ""}
+      ${mm.huomio ? `<p class="muted small">${esc(mm.huomio)}</p>` : ""}
+      <div class="row" style="margin-top:8px"><button class="small" data-editm="${mm.id}">Muokkaa</button><button class="small danger" data-delm="${mm.id}">Poista</button></div></details>`;
+  }).join("") || `<p class="muted">Ei vielä mittauksia.</p>`;
+  // punnitukset
+  h += `<h2>Punnitukset</h2><div class="card"><div class="row"><input id="wkg" inputmode="decimal" placeholder="kg"><input id="wd" type="date" value="${todayISO()}"></div>
+    <button class="primary block" id="wadd" style="margin-top:10px">Tallenna punnitus</button></div>`;
+  h += S.paino.slice(0, S.wAll ? 1e9 : 8).map(p => `<div class="list-item row space"><span>${fiDate(p.pvm)}</span><b>${fmtKg(p.paino_kg)} kg</b>${p.lahde === "sovellus" ? `<button class="ghost small" data-del="${p.id}">Poista</button>` : `<span class="badge vanha">Vanha</span>`}</div>`).join("");
+  if (!S.wAll && S.paino.length > 8) h += `<button class="ghost block" id="wall">Näytä kaikki (${S.paino.length})</button>`;
   $view.innerHTML = h;
+  $view.querySelectorAll("[data-metric]").forEach(b => b.onclick = () => { S.bodyMetric = b.dataset.metric; render(); });
+  bindChart($view);
+  document.getElementById("addm").onclick = () => { S.mode = "mittaus"; S.editM = null; render(); scrollTo(0, 0); };
+  $view.querySelectorAll("[data-editm]").forEach(b => b.onclick = () => { S.mode = "mittaus"; S.editM = b.dataset.editm; render(); scrollTo(0, 0); });
+  $view.querySelectorAll("[data-delm]").forEach(b => b.onclick = () => { if (confirm("Poistetaanko mittaus pysyvästi?")) deleteDoc(userDoc("mittaukset", b.dataset.delm)); });
+  const wa = document.getElementById("wall"); if (wa) wa.onclick = () => { S.wAll = true; render(); };
   document.getElementById("wadd").onclick = () => {
     const kg = num(document.getElementById("wkg").value), d = document.getElementById("wd").value;
     if (!kg || kg < 30 || kg > 250) { toast("Tarkista paino"); return; }
     const id = uid(); save("kehonpaino", id, { pvm: d, paino_kg: kg, huomio: "", lahde: "sovellus", kirjattu: nowISO() }); S._typing = false; toast("Tallennettu");
   };
   $view.querySelectorAll("[data-del]").forEach(b => b.onclick = () => { if (confirm("Poistetaanko punnitus?")) deleteDoc(userDoc("kehonpaino", b.dataset.del)); });
+}
+function renderMeasurementForm() {
+  const ed = S.editM ? S.mittaukset.find(m => m.id === S.editM) : null;
+  const f = S.mform && S.mform.id === (ed?.id || "uusi") ? S.mform : (S.mform = { id: ed?.id || "uusi", pvm: ed?.pvm || todayISO(), laite: ed?.laite || "", huomio: ed?.huomio || "",
+    arvot: { ...(ed?.arvot || {}) }, segmentit: JSON.parse(JSON.stringify(ed?.segmentit || {})), extra: Object.keys(ed?.arvot || {}).filter(k => !["paino", "rasvaprosentti", "rasvamassa"].includes(k)) });
+  const devices = [...new Set(S.mittaukset.map(m => m.laite).filter(Boolean))];
+  const field = k => { const m = metricOf(k); return `<div class="mf"><label>${esc(m.n)}${m.u ? ` (${esc(m.u)})` : ""}</label><input inputmode="decimal" data-k="${k}" value="${f.arvot[k] == null ? "" : fmtN(f.arvot[k], 3)}"></div>`; };
+  let h = `<div id="mform"><div class="row space" style="margin-top:4px"><button class="ghost small" id="mback" style="padding-left:0">‹ Takaisin</button></div>
+    <h1>${ed ? "Muokkaa mittausta" : "Uusi mittaus"}</h1><p class="muted small">Syötä ne arvot, jotka laite antoi. Tyhjät kentät jätetään pois.</p>
+    <div class="row"><div style="flex:1"><label>Päivä</label><input type="date" id="mpvm" value="${f.pvm}"></div>
+    <div style="flex:1.3"><label>Laite tai paikka</label><input id="mlaite" list="mlaitteet" placeholder="esim. Tanita, Puhti" value="${esc(f.laite)}"><datalist id="mlaitteet">${devices.map(d => `<option value="${esc(d)}">`).join("")}</datalist></div></div>
+    <div class="mgrid">${["paino", "rasvaprosentti", "rasvamassa"].map(field).join("")}${f.extra.map(field).join("")}</div>
+    <label>Lisää arvo</label><select id="madd"><option value="">Valitse mittari…</option>${METRICS.filter(m => !["paino", "rasvaprosentti", "rasvamassa"].includes(m.k) && !f.extra.includes(m.k)).map(m => `<option value="${m.k}">${esc(m.n)}</option>`).join("")}<option value="__oma">Muu mittari (oma nimi)…</option></select>
+    <details class="card" id="msegs" ${(Object.keys(f.segmentit).length || f.segOpen) ? "open" : ""}><summary><b>Segmentit</b> <span class="muted small">(valinnainen)</span></summary>
+      <div class="segt"><table><tr><th></th>${SEGVALS.map(([, n, u]) => `<th>${n}<br><small>${u}</small></th>`).join("")}</tr>
+      ${SEGMENTS.map(([s, n]) => `<tr><td>${n}</td>${SEGVALS.map(([c]) => `<td><input inputmode="decimal" data-seg="${s}" data-c="${c}" value="${f.segmentit[s]?.[c] == null ? "" : fmtN(f.segmentit[s][c], 2)}"></td>`).join("")}</tr>`).join("")}</table></div></details>
+    <label>Huomio</label><textarea id="mnote" placeholder="esim. aamulla ennen syömistä">${esc(f.huomio)}</textarea>
+    <button class="primary block" id="msave" style="margin-top:14px">Tallenna mittaus</button></div>`;
+  $view.innerHTML = h;
+  const back = () => { S.mode = null; S.mform = null; S.editM = null; S._typing = false; render(); };
+  document.getElementById("mback").onclick = back;
+  document.getElementById("msegs").ontoggle = e => { f.segOpen = e.target.open; };
+  document.getElementById("mform").addEventListener("input", e => {
+    const t = e.target;
+    if (t.dataset.k) f.arvot[t.dataset.k] = num(t.value);
+    else if (t.dataset.seg) { (f.segmentit[t.dataset.seg] ||= {})[t.dataset.c] = num(t.value); }
+    else if (t.id === "mpvm") f.pvm = t.value; else if (t.id === "mlaite") f.laite = t.value; else if (t.id === "mnote") f.huomio = t.value;
+  });
+  document.getElementById("madd").onchange = e => {
+    let k = e.target.value; if (!k) return;
+    if (k === "__oma") {
+      const raw = (prompt("Mittarin nimi ja yksikkö, esim. Vyötärö cm") || "").trim(); if (!raw) { e.target.value = ""; return; }
+      const mm = raw.match(/^(.*?)\s*\(?\s*(cm|mm|kg|g|%|kcal|kJ|v|cm²|kg\/m²|l|bpm|Ω)\s*\)?$/i);
+      const n = (mm ? mm[1] : raw).trim() || raw, u = mm ? mm[2] : "";
+      k = n.toLowerCase().replace(/[^a-zåäö0-9]+/g, "_").replace(/^_|_$/g, "") || "oma";
+      if (!metricOf(k).n || !METRICS.some(x => x.k === k)) saveMeta({ omatMittarit: [...(S.meta?.omatMittarit || []).filter(x => x.k !== k), { k, n, u, hyva: "" }] });
+    }
+    if (!f.extra.includes(k)) f.extra.push(k); S._typing = false; render();
+  };
+  document.getElementById("msave").onclick = () => {
+    const arvot = {}; Object.entries(f.arvot).forEach(([k, v]) => { if (v != null && Number.isFinite(v)) arvot[k] = v; });
+    const segmentit = {}; Object.entries(f.segmentit).forEach(([s, o]) => { const c = {}; Object.entries(o || {}).forEach(([k, v]) => { if (v != null && Number.isFinite(v)) c[k] = v; }); if (Object.keys(c).length) segmentit[s] = c; });
+    if (!Object.keys(arvot).length) { toast("Syötä vähintään yksi arvo"); return; }
+    if (!f.pvm) { toast("Valitse päivä"); return; }
+    const id = ed?.id || uid();
+    save("mittaukset", id, { pvm: f.pvm, laite: f.laite.trim(), arvot, segmentit, huomio: f.huomio.trim(), lahde: ed?.lahde || "sovellus", kirjattu: ed?.kirjattu || nowISO(), muokattu: nowISO() });
+    toast("Mittaus tallennettu"); back();
+  };
 }
 
 // ----- Data: vienti ja tuonti -----
@@ -570,6 +747,7 @@ Tiedostot:
 - treenikerrat.csv – yksi rivi per treenikerta (tila: tehty, osittain, valiin = väliin jätetty).
 - kehonpaino.csv – punnitukset (pvm, paino_kg).
 - salikaynnit.csv – vanhat käyntimerkinnät 2023–2024 ilman sarjoja.
+- kehonkoostumus.csv – kehonkoostumusmittaukset pitkänä taulukkona: yksi rivi per mitattu arvo (pvm, laite, mittari, nimi, arvo, yksikko, segmentti). Eri laitteet antavat eri mittareita; vertaa saman mittarin arvoja. Tanitan "lihasmassa" ja InBody-tyyppisten laitteiden "luurankolihas" ovat eri suureita. Segmentti: oikea_kasi, vasen_kasi, keskivartalo, oikea_jalka, vasen_jalka (tyhjä = koko keho); suhde_pros = segmentin rasvaton massa suhteessa viitearvoon.
 
 Muoto: CSV (RFC 4180), pilkkuerotin, desimaalipiste, UTF-8 (BOM), päivämäärät VVVV-KK-PP.
 
@@ -591,6 +769,16 @@ sarjat.csv-sarakkeet:
 treenikerrat.csv: tyyppi = ohjelma (ohjelman mukainen) tai oma (vapaa treeni, ei siirrä ohjelman etenemistä; ohjelma = "Oma", jakso ja viikko tyhjät). pohja_id = treeni, jota käytettiin oman treenin pohjana.
 Uudet sarakkeet lisätään aina tiedoston loppuun, joten vanhojen vientien sarakkeet säilyvät samoilla paikoilla.
 `;
+function measurementRows() {
+  const out = [];
+  [...S.mittaukset].sort((a, b) => a.pvm.localeCompare(b.pvm)).forEach(m => {
+    Object.entries(m.arvot || {}).forEach(([k, v]) => out.push({ pvm: m.pvm, laite: m.laite, mittari: k, nimi: metricOf(k).n, arvo: v, yksikko: metricOf(k).u, segmentti: "", huomio: m.huomio, lahde: m.lahde, id: m.id }));
+    Object.entries(m.segmentit || {}).forEach(([sg, o]) => Object.entries(o).forEach(([k, v]) => {
+      const sv = SEGVALS.find(x => x[0] === k); out.push({ pvm: m.pvm, laite: m.laite, mittari: k, nimi: sv ? sv[1] : k, arvo: v, yksikko: sv ? sv[2] : "", segmentti: sg, huomio: m.huomio, lahde: m.lahde, id: m.id });
+    }));
+  });
+  return out;
+}
 async function shareFiles(files) {
   const fs = files.map(f => new File([f.data], f.name, { type: f.type }));
   if (navigator.canShare && navigator.canShare({ files: fs })) {
@@ -611,7 +799,7 @@ function renderData() {
     <div class="card stack"><h3>Tuo</h3>
       <p class="muted small">Käyttöönottopaketti tai JSON-varmuuskopio. Olemassa olevat tiedot säilyvät, samat tunnisteet päivitetään.</p>
       <input type="file" id="imp" accept=".json,application/json"></div>
-    <div class="card small"><p>Sovelluksessa: ${nApp} kirjattua treenikertaa, ${nOld} vanhaa, ${S.paino.length} punnitusta, ${S.kaynnit.length} vanhaa käyntiä.</p>
+    <div class="card small"><p>Sovelluksessa: ${nApp} kirjattua treenikertaa, ${nOld} vanhaa, ${S.paino.length} punnitusta, ${S.mittaukset.length} kehonkoostumusmittausta, ${S.kaynnit.length} vanhaa käyntiä.</p>
       <p class="muted">Versio ${VERSION} · ${esc(S.user.email)}</p><button class="ghost" id="logout">Kirjaudu ulos</button></div>`;
   document.getElementById("exp").onclick = async () => {
     const d = todayISO();
@@ -619,12 +807,13 @@ function renderData() {
       { name: `sarjat_${d}.csv`, type: "text/csv", data: toCSV(CSV_COLS, flatRows()) },
       { name: `treenikerrat_${d}.csv`, type: "text/csv", data: toCSV(["id", "pvm", "ohjelma", "jakso", "viikko", "treeni", "tila", "alku", "loppu", "sarjoja", "korvatut", "ohitetut", "huomio", "lahde", "tyyppi", "pohja_id"], sessionRows()) },
       { name: `kehonpaino_${d}.csv`, type: "text/csv", data: toCSV(["pvm", "paino_kg", "huomio", "lahde", "id"], [...S.paino].reverse()) },
+      { name: `kehonkoostumus_${d}.csv`, type: "text/csv", data: toCSV(["pvm", "laite", "mittari", "nimi", "arvo", "yksikko", "segmentti", "huomio", "lahde", "id"], measurementRows()) },
       { name: `salikaynnit_${d}.csv`, type: "text/csv", data: toCSV(["pvm", "kellonaika", "tila", "huomio", "lahde", "id"], [...S.kaynnit].sort((a, b) => a.pvm.localeCompare(b.pvm))) },
       { name: `LUEMINUT.md`, type: "text/markdown", data: README() }]);
     if (ok) { saveMeta({ viimeVienti: nowISO() }); toast("Vienti tehty"); }
   };
   document.getElementById("expjson").onclick = () => shareFiles([{ name: `treeni_varmuuskopio_${todayISO()}.json`, type: "application/json",
-    data: JSON.stringify({ muoto: "treeni-varmuuskopio-1", viety: nowISO(), ohjelmat: Object.values(S.ohjelmat), meta: S.meta, treenikerrat: S.kerrat, kehonpaino: S.paino, kaynnit: S.kaynnit }) }]);
+    data: JSON.stringify({ muoto: "treeni-varmuuskopio-1", viety: nowISO(), ohjelmat: Object.values(S.ohjelmat), meta: S.meta, treenikerrat: S.kerrat, kehonpaino: S.paino, kaynnit: S.kaynnit, mittaukset: S.mittaukset }) }]);
   document.getElementById("imp").onchange = async e => {
     const file = e.target.files[0]; if (!file) return;
     try { const n = await importPackage(JSON.parse(await file.text())); toast(`Tuotu ${n} kohdetta`, 4000); }
@@ -638,6 +827,7 @@ async function importPackage(pkg) {
   (pkg.treenikerrat || []).forEach(({ id, ...k }) => ops.push(["treenikerrat", id, k]));
   (pkg.kehonpaino || []).forEach(({ id, ...k }) => ops.push(["kehonpaino", id, k]));
   (pkg.kaynnit || []).forEach(({ id, ...k }) => ops.push(["kaynnit", id, k]));
+  (pkg.mittaukset || []).forEach(({ id, ...k }) => ops.push(["mittaukset", id, k]));
   if (pkg.meta && Object.keys(pkg.meta).length && !S.meta?.aloitus) ops.push(["meta", "tila", pkg.meta]);
   if (!ops.length) throw new Error("Tiedostossa ei ollut tuotavaa");
   for (let i = 0; i < ops.length; i += 400) {

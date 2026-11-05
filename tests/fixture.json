@@ -1,0 +1,32 @@
+{
+ "muoto": "treeni-kayttoonotto-1",
+ "ohjelmat": [{
+  "id": "testiohjelma", "nimi": "Testiohjelma", "viikkoja": 3, "yleisohje": "Testidata, ei oikea ohjelma.",
+  "jaksot": [
+   {"id": "pv1", "nimi": "Perusvoima", "tyyppi": "perusvoima", "ohje": "Palautus 2 min.", "lepo_s": 120,
+    "treenit": [
+     {"id": "pv1-t1", "nimi": "Treeni 1 (Ylävartalo)", "liikkeet": [
+      {"nimi": "Penkkipunnerrus", "tavoite": "3x10", "sarjat": [{"toistot": 10, "tyyppi": "tyo"}, {"toistot": 10, "tyyppi": "tyo"}, {"toistot": 10, "tyyppi": "tyo"}]},
+      {"nimi": "Vinopenkki kp.", "tavoite": "2x12", "sarjat": [{"toistot": 12, "tyyppi": "tyo"}, {"toistot": 12, "tyyppi": "tyo"}]}]},
+     {"id": "pv1-t2", "nimi": "Treeni 2 (Jalat)", "liikkeet": [
+      {"nimi": "Kyykky", "tavoite": "12,10,8", "sarjat": [{"toistot": 12, "tyyppi": "tyo"}, {"toistot": 10, "tyyppi": "tyo"}, {"toistot": 8, "tyyppi": "tyo"}]}]},
+     {"id": "pv1-t3", "nimi": "Treeni 3 (Selkä)", "liikkeet": [
+      {"nimi": "Kulmasoutu", "tavoite": "3*", "sarjat": [{"toistot": 10, "tyyppi": "tyo"}, {"toistot": 10, "tyyppi": "tyo"}, {"toistot": 15, "tyyppi": "restpause"}]}]}],
+    "viikot": [{"viikko": 1, "treenit": ["pv1-t1", "pv1-t2", "pv1-t3"]}, {"viikko": 2, "treenit": ["pv1-t1", "pv1-t2", "pv1-t3"]}]},
+   {"id": "lepo", "nimi": "Lepoviikko", "tyyppi": "lepo", "ohje": "Ei treenejä.", "lepo_s": 0, "treenit": [], "viikot": [{"viikko": 3, "treenit": []}]}]
+ }],
+ "treenikerrat": [
+  {"id": "vanha-0001", "ohjelma": "Vanha ohjelma", "ohjelmaId": null, "jakso": "", "viikko": 1, "treeni": "Golden six", "tila": "tehty", "pvm": "2025-03-10", "alku": "", "loppu": "", "huomio": "", "lahde": "vanha_excel", "liikkeet": [],
+   "sarjat": [
+    {"liike": "Penkkipunnerrus", "sarja": 1, "tyyppi": "tyo", "tavoite": "3x10", "paino_kg": 60, "toistot": 10, "aika_s": null, "huomio": "", "kirjattu": "", "id": "X!B2#1", "lahde": "vanha_excel", "alkuperainen": "60x10, 70x8", "varmuus": "varma"},
+    {"liike": "Penkkipunnerrus", "sarja": 2, "tyyppi": "tyo", "tavoite": "3x10", "paino_kg": 70, "toistot": 8, "aika_s": null, "huomio": "", "kirjattu": "", "id": "X!B2#2", "lahde": "vanha_excel", "alkuperainen": "60x10, 70x8", "varmuus": "varma"},
+    {"liike": "Kyykky", "sarja": 1, "tyyppi": "tyo", "tavoite": "", "paino_kg": 90, "toistot": 10, "aika_s": null, "huomio": "", "kirjattu": "", "id": "X!B3#1", "lahde": "vanha_excel", "alkuperainen": "90x10", "varmuus": "varma"}]},
+  {"id": "vanha-0002", "ohjelma": "Vanha ohjelma", "ohjelmaId": null, "jakso": "", "viikko": 2, "treeni": "Selkä", "tila": "tehty", "pvm": "", "alku": "", "loppu": "", "huomio": "", "lahde": "vanha_excel", "liikkeet": [],
+   "sarjat": [{"liike": "Ylätalja/leuat", "sarja": 1, "tyyppi": "tyo", "tavoite": "", "paino_kg": -40, "toistot": 6, "aika_s": null, "huomio": "", "kirjattu": "", "id": "X!C2#1", "lahde": "vanha_excel", "alkuperainen": "M-40x6", "varmuus": "tulkittu"}]}],
+ "kehonpaino": [{"id": "vanha-p1", "pvm": "2025-01-05", "paino_kg": 100.5, "huomio": "", "lahde": "vanha_excel", "varmuus": "varma"}],
+ "kaynnit": [{"id": "vanha-k1", "pvm": "2024-01-02", "kellonaika": "15:41", "tila": "tehty", "huomio": "", "lahde": "vanha_excel"}],
+ "mittaukset": [
+  {"id": "m1", "pvm": "2025-04-01", "laite": "Laite A", "lahde": "testi", "huomio": "", "arvot": {"paino": 101, "rasvaprosentti": 21, "rasvamassa": 21.2, "lihasmassa": 75}, "segmentit": {}},
+  {"id": "m2", "pvm": "2026-04-01", "laite": "Laite B", "lahde": "testi", "huomio": "", "arvot": {"paino": 104, "rasvaprosentti": 23, "rasvamassa": 23.9, "luurankolihas": 46},
+   "segmentit": {"oikea_kasi": {"rasvaton_massa": 5.0, "suhde_pros": 110}}}]
+}
