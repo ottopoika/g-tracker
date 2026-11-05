@@ -1,0 +1,40 @@
+# Clauden muutokset: claude/**-haara → testit → yhdistys mainiin → julkaisu.
+name: Testaa ja yhdistä Clauden muutokset
+on:
+  push:
+    branches: ["claude/**"]
+permissions:
+  contents: write
+  actions: write
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 22 }
+      - name: Asenna testityökalut
+        working-directory: tests
+        run: npm install --no-audit --no-fund && npx playwright install --with-deps chromium
+      - name: Aja testit
+        working-directory: tests
+        run: npm test
+  merge:
+    needs: test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with: { fetch-depth: 0 }
+      - name: Yhdistä mainiin
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git checkout main
+          git merge --no-edit "origin/${GITHUB_REF_NAME}" -m "Yhdistä ${GITHUB_REF_NAME} (testit läpi)"
+          git push origin main
+      - name: Käynnistä julkaisu
+        env: { GH_TOKEN: "${{ github.token }}" }
+        run: gh workflow run deploy.yml --ref main
