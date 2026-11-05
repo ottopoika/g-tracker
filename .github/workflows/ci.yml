@@ -11,22 +11,25 @@ concurrency:
   cancel-in-progress: true
 jobs:
   test:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
         with: { node-version: 22 }
-      - name: Asenna testityökalut
+      - name: Asenna riippuvuudet
         working-directory: tests
-        run: npm install --no-audit --no-fund && npx playwright install --with-deps chromium
+        run: npm install --no-audit --no-fund
+      - name: Asenna testiselain
+        working-directory: tests
+        run: npx playwright install --with-deps chromium
       - name: Aja testit
         working-directory: tests
         run: npm test
   merge:
     needs: test
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         with: { fetch-depth: 0 }
       - name: Yhdistä mainiin
         run: |
