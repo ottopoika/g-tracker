@@ -63,6 +63,23 @@ try {
     await pg.click("[data-tab=paino]"); await W(300);
     check("keho: 4 ruutua", await pg.locator(".tile").count() === 4);
     check("keho: eri laite -merkintä", (await pg.locator(".tile .tl-d").allTextContents()).some(t => t.includes("eri laite")));
+    // v0.4.1: trendivalitsin ei hyppää alkuun napautettaessa (pakotetaan rivi kapeaksi, jotta se vierii)
+    await pg.evaluate(() => { const r = document.getElementById("tchips"); r.style.width = "140px"; r.style.margin = "0"; r.scrollLeft = r.scrollWidth; });
+    await W(150);
+    const sl0 = await pg.evaluate(() => document.getElementById("tchips").scrollLeft);
+    const target = await pg.evaluate(() => { const r = document.getElementById("tchips"), rr = r.getBoundingClientRect();
+      const c = [...r.querySelectorAll(".chip:not(.sel)")].find(c => { const b = c.getBoundingClientRect(); return b.left >= rr.left - 1 && b.right <= rr.right + 1; })
+        || [...r.querySelectorAll(".chip:not(.sel)")].pop(); return c.dataset.metric; });
+    await pg.locator(`#tchips [data-metric="${target}"]`).click(); await W(500);
+    const sl1 = await pg.evaluate(() => document.getElementById("tchips").scrollLeft);
+    check("keho: trendivalitsin ei hyppää alkuun", sl0 > 0 && sl1 > 0, `ennen ${sl0}, jälkeen ${sl1}`);
+    check("keho: valittu trendi vaihtuu", await pg.locator(`#tchips [data-metric="${target}"].sel`).count() === 1
+      && (await pg.locator("#trendcard svg.chart").getAttribute("aria-label")).startsWith(await pg.locator(`#tchips [data-metric="${target}"]`).textContent()));
+    // v0.4.1: mittauskortissa aina 4 avainarvoa, Muokkaa/Poista vasta avattuna
+    check("keho: mittauskortissa 4 avainarvoa", (await pg.locator(".mcard").evaluateAll(cs => cs.map(c => c.querySelectorAll(".kgrid .kc").length))).every(n => n === 4));
+    check("keho: muokkaus piilossa suljetussa kortissa", !(await pg.locator(".mcard").first().locator("[data-editm]").isVisible()));
+    await pg.locator(".mcard summary").first().click(); await W(150);
+    check("keho: Kaikki arvot avaa kortin", await pg.locator(".mcard").first().locator("[data-editm]").isVisible());
     await pg.click("#addm"); await W(200);
     await pg.fill("[data-k=paino]", "103,5"); await pg.fill("#mlaite", "Laite B");
     await pg.selectOption("#madd", "__oma"); await W(200); await pg.fill("[data-k=vyötärö]", "100");
