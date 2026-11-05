@@ -41,7 +41,11 @@ try {
     pg.on("dialog", d => d.type() === "prompt" ? d.accept("Vyötärö cm") : d.accept());
     const W = ms => pg.waitForTimeout(ms);
     console.log(`--- ${scheme} ---`);
-    await pg.goto(url); await W(300);
+    await pg.goto(url);
+    check("latausnäyttö näkyy heti", await pg.locator("#splash").isVisible());
+    await W(1300);
+    check("latausnäyttö poistuu", await pg.locator("#splash").count() === 0);
+    check("nimi Pump Club", (await pg.title()) === "Pump Club" && (await pg.locator("#title").textContent()) === "Pump Club");
     await pg.fill("input[name=e]", "testi@example.com"); await pg.fill("input[name=p]", "x"); await pg.click("button[type=submit]"); await W(300);
     await pg.click("[data-tab=vienti]"); await pg.setInputFiles("#imp", path.join(here, "fixture.json")); await W(700);
     await pg.click("[data-tab=tanaan]"); await W(200);

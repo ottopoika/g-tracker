@@ -1,11 +1,11 @@
 {
-  "name": "Treeni",
-  "short_name": "Treeni",
+  "name": "Pump Club",
+  "short_name": "Pump Club",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",
-  "background_color": "#111418",
-  "theme_color": "#111418",
+  "background_color": "#e84a3b",
+  "theme_color": "#100e0d",
   "lang": "fi",
   "icons": [
     { "src": "icon-192.png", "sizes": "192x192", "type": "image/png" },

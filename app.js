@@ -1,11 +1,11 @@
-// Treeni – kirjaussovellus. Ei ulkoisia riippuvuuksia: Firebase on paketoitu tiedostoon firebase-bundle.js.
+// Pump Club (ent. Treeni) – kirjaussovellus. Ei ulkoisia riippuvuuksia: Firebase on paketoitu tiedostoon firebase-bundle.js.
 import {
   initializeApp, getAuth, signInWithEmailAndPassword, onAuthStateChanged, signOut,
   initializeFirestore, persistentLocalCache, persistentSingleTabManager,
   collection, doc, setDoc, deleteDoc, onSnapshot, writeBatch
 } from "./firebase-bundle.js";
 
-const VERSION = "0.4.2";
+const VERSION = "0.5.0";
 const firebaseConfig = {
   apiKey: "AIzaSyDTOryLjY0VBOa9DIuH02yVlxuy0JOBFKk",
   authDomain: "gym-tracker-e1050.firebaseapp.com",
@@ -122,6 +122,16 @@ function updateSync() {
 addEventListener("online", updateSync); addEventListener("offline", updateSync);
 $tabs.addEventListener("click", e => { const b = e.target.closest("button[data-tab]"); if (!b) return; S.tab = b.dataset.tab; S.editId = null; if (S.mode === "mittaus") { S.mode = null; S.mform = null; } render(); scrollTo(0, 0); });
 
+// ---------- latausnäyttö ----------
+// Poistetaan, kun ensimmäinen oikea näkymä (kirjautuminen tai sovellus) on piirretty. Lyhyt vähimmäisaika estää välähdyksen.
+const SPLASH_MIN_MS = 700;
+function hideSplash() {
+  const el = document.getElementById("splash"); if (!el || el.dataset.out) return;
+  el.dataset.out = "1";
+  setTimeout(() => { el.classList.add("out"); setTimeout(() => el.remove(), 400); }, Math.max(0, SPLASH_MIN_MS - performance.now()));
+}
+setTimeout(hideSplash, 8000); // varmistus: ei koskaan jumiin latausnäyttöön
+
 // ---------- render ----------
 function render() {
   if (!S.user) return;
@@ -132,6 +142,7 @@ function render() {
   if (a && $view.contains(a) && (a.tagName === "INPUT" || a.tagName === "TEXTAREA") && S._typing) return;
   // liikevalitsin auki: piirretään uudelleen vasta kun se suljetaan
   if (document.getElementById("expick-wrap")) { S._deferred = true; return; }
+  hideSplash();
   const fn = { tanaan: renderToday, ohjelma: renderProgram, historia: renderHistory, paino: renderBody, vienti: renderData }[S.tab];
   fn();
 }
@@ -139,6 +150,7 @@ $view.addEventListener("focusin", e => { if (e.target.matches("input,textarea"))
 $view.addEventListener("focusout", () => { S._typing = false; setTimeout(render, 0); });
 
 function renderLogin() {
+  hideSplash();
   $view.innerHTML = `
     <h1>Kirjaudu</h1>
     <p class="muted small">Käytä Firebaseen luomaasi tunnusta. Kirjautuminen muistetaan tässä puhelimessa.</p>

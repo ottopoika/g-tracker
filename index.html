@@ -3,21 +3,29 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<meta name="theme-color" content="#0a0b0d" media="(prefers-color-scheme: dark)">
-<meta name="theme-color" content="#f2f2f6" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#100e0d" media="(prefers-color-scheme: dark)">
+<meta name="theme-color" content="#f6f1e5" media="(prefers-color-scheme: light)">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<meta name="apple-mobile-web-app-title" content="Treeni">
-<title>Treeni</title>
+<meta name="apple-mobile-web-app-title" content="Pump Club">
+<title>Pump Club</title>
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="apple-touch-icon" href="icon-180.png">
 <link rel="icon" href="icon-192.png">
 <link rel="stylesheet" href="style.css">
 </head>
 <body>
+<!-- Latausnäyttö: näkyy heti, poistetaan kun ensimmäinen näkymä on valmis (hideSplash app.js:ssä) -->
+<div id="splash" role="status" aria-label="Ladataan Pump Club">
+  <div class="sp-rays"></div>
+  <div class="sp-mark" aria-hidden="true">
+    <svg class="sp-bar" viewBox="0 0 512 90"><g fill="#111"><rect x="40" y="39" width="432" height="12" rx="3"/><rect x="62" y="10" width="26" height="70" rx="5"/><rect x="92" y="18" width="20" height="54" rx="4"/><rect x="40" y="30" width="18" height="30" rx="3"/><rect x="424" y="10" width="26" height="70" rx="5"/><rect x="400" y="18" width="20" height="54" rx="4"/><rect x="454" y="30" width="18" height="30" rx="3"/></g><g fill="#f6f1e5"><rect x="69" y="16" width="5" height="58" rx="2"/><rect x="431" y="16" width="5" height="58" rx="2"/></g></svg>
+    <div class="sp-word"><span class="sp-pump">PUMP</span><span class="sp-club">CLUB</span></div>
+  </div>
+</div>
 <header id="topbar">
-  <span id="title">Treeni</span>
+  <span id="title">Pump Club</span>
   <span id="sync" class="sync" title="Tallennuksen tila"></span>
 </header>
 <main id="view"><p class="muted center">Ladataan…</p></main>

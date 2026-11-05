@@ -1,30 +1,34 @@
-/* Treeni – ulkoasu v0.3.0
+/* Pump Club (ent. Treeni) – ulkoasu v0.5.0
    Suunta: iOS 26 -henkinen "Liquid Glass" navigaatiokerroksessa, tumma ensisijainen teema,
-   tasot sävyeroilla varjojen sijaan, suuret painavat otsikot, tabulaariset numerot. */
+   tasot sävyeroilla varjojen sijaan, suuret painavat otsikot, tabulaariset numerot.
+   Väriteema (v0.5.0): retro salijuliste – punainen #e84a3b, kerma #f6f1e5, musta. Lämmin musta tumma teema, kermapohjainen vaalea. */
 :root{
-  --bg:#0a0b0d; --s1:#141619; --s2:#1c1f23; --s3:#262a30;
-  --line:rgba(255,255,255,.07); --line2:rgba(255,255,255,.12);
-  --text:#f4f6f8; --text2:rgba(235,238,245,.66); --text3:rgba(235,238,245,.42);
-  --accent:#c8f43a; --accent-ink:#0d1400; --accent-text:#c8f43a; --accent-soft:rgba(200,244,58,.13);
+  --bg:#100e0d; --s1:#1a1716; --s2:#24201e; --s3:#2f2a27;
+  --line:rgba(255,240,225,.07); --line2:rgba(255,240,225,.12);
+  --text:#f6f1e5; --text2:rgba(246,241,229,.66); --text3:rgba(246,241,229,.42);
+  --accent:#e84a3b; --accent-ink:#ffffff; --accent-text:#ff6a5a; --accent-soft:rgba(232,74,59,.16); --accent-glow:rgba(232,74,59,.32);
+  --good:#46c486;
   --warn:#ffb547; --warn-soft:rgba(255,181,71,.14);
   --danger:#ff6b6b; --danger-soft:rgba(255,107,107,.13);
   --blue:#7cb6ff; --blue-soft:rgba(124,182,255,.14);
   --violet:#b9a3ff; --violet-soft:rgba(185,163,255,.14);
-  --glass:rgba(28,31,36,.62); --glass-line:rgba(255,255,255,.14); --glass-hi:rgba(255,255,255,.10);
+  --glass:rgba(36,32,30,.62); --glass-line:rgba(255,240,225,.14); --glass-hi:rgba(255,240,225,.10);
   --r-xl:26px; --r-l:20px; --r-m:14px; --r-s:10px;
   --ease:cubic-bezier(.2,.9,.25,1.15);
-  --tabh:64px; --chart:#c8f43a;
+  --tabh:64px; --chart:#ff5e4d;
+  --brand-red:#e84a3b; --brand-cream:#f6f1e5; --brand-ink:#111111;
   color-scheme:dark;
 }
 @media (prefers-color-scheme:light){
   :root{
-    --bg:#f2f2f6; --s1:#ffffff; --s2:#f0f1f4; --s3:#e4e6eb;
-    --line:rgba(0,0,0,.07); --line2:rgba(0,0,0,.12);
-    --text:#0b0c0e; --text2:rgba(60,60,67,.72); --text3:rgba(60,60,67,.45);
-    --accent:#c8f43a; --accent-ink:#0d1400; --accent-text:#4d6b00; --accent-soft:rgba(120,170,0,.13);
-    --warn:#b86e00; --warn-soft:rgba(255,160,0,.16); --danger:#d93636; --danger-soft:rgba(217,54,54,.1);
+    --bg:#f6f1e5; --s1:#fffcf6; --s2:#efe8da; --s3:#e4dbca;
+    --line:rgba(40,20,10,.08); --line2:rgba(40,20,10,.14);
+    --text:#17120f; --text2:rgba(50,38,30,.74); --text3:rgba(50,38,30,.48);
+    --accent:#d8392b; --accent-ink:#ffffff; --accent-text:#c93224; --accent-soft:rgba(216,57,43,.11); --accent-glow:rgba(216,57,43,.25);
+    --good:#1e7a4c;
+    --warn:#b86e00; --warn-soft:rgba(255,160,0,.16); --danger:#c93224; --danger-soft:rgba(201,50,36,.1);
     --blue:#1f6fe0; --blue-soft:rgba(31,111,224,.1); --violet:#6b4fd8; --violet-soft:rgba(107,79,216,.1);
-    --glass:rgba(255,255,255,.66); --glass-line:rgba(0,0,0,.08); --glass-hi:rgba(255,255,255,.7); --chart:#6a9300;
+    --glass:rgba(255,252,246,.7); --glass-line:rgba(40,20,10,.08); --glass-hi:rgba(255,255,255,.7); --chart:#d8392b;
     color-scheme:light;
   }
 }
@@ -53,7 +57,7 @@ body{min-height:100dvh}
 .sync{display:inline-flex;align-items:center;gap:6px;font-size:13px;font-weight:600;color:var(--text2);
   padding:5px 10px;border-radius:99px;background:var(--s2)}
 .sync::before{content:"";width:7px;height:7px;border-radius:50%;background:currentColor}
-.sync.ok{color:var(--accent-text)} .sync.pending{color:var(--warn)} .sync.off{color:var(--danger)}
+.sync.ok{color:var(--good)} .sync.pending{color:var(--warn)} .sync.off{color:var(--danger)}
 
 main{padding:4px 20px calc(var(--tabh) + 120px + env(safe-area-inset-bottom));max-width:640px;margin:0 auto}
 
@@ -85,7 +89,7 @@ p{margin:6px 0}
 button,.btn{font:inherit;font-weight:650;border-radius:var(--r-m);border:0;background:var(--s2);color:var(--text);
   padding:12px 16px;min-height:48px;transition:transform .18s var(--ease),background .2s,opacity .2s}
 button:active{transform:scale(.97)}
-button.primary{background:var(--accent);color:var(--accent-ink);box-shadow:0 6px 22px rgba(200,244,58,.22)}
+button.primary{background:var(--accent);color:var(--accent-ink);box-shadow:0 6px 22px var(--accent-glow)}
 button.danger{color:var(--danger);background:var(--danger-soft)}
 button.ghost{background:transparent;color:var(--accent-text)}
 button.block{width:100%}
@@ -111,7 +115,7 @@ input[type=file]{padding:10px;font-size:15px}
 
 /* ---------- Tänään ---------- */
 .hero{position:relative;overflow:hidden;border-radius:var(--r-xl);padding:20px;margin:14px 0 18px;
-  background:radial-gradient(120% 90% at 100% 0%,rgba(200,244,58,.22),transparent 55%),var(--s1);border:1px solid var(--line2)}
+  background:radial-gradient(120% 90% at 100% 0%,var(--accent-glow),transparent 55%),var(--s1);border:1px solid var(--line2)}
 .hero h3{font-size:26px;font-weight:800;letter-spacing:-.03em;line-height:1.1;margin:4px 0 8px}
 .hero .preview{color:var(--text2);font-size:15px;margin-bottom:16px}
 .hero button{width:100%;min-height:54px;font-size:18px;border-radius:16px}
@@ -148,7 +152,7 @@ input[type=file]{padding:10px;font-size:15px}
 .set.pop .ok{animation:pop .45s var(--ease)}
 .set.pop .stepper{animation:flash .6s ease}
 @keyframes pop{0%{transform:scale(.7)}60%{transform:scale(1.12)}100%{transform:scale(1)}}
-@keyframes flash{0%{box-shadow:0 0 0 0 rgba(200,244,58,.45)}100%{box-shadow:0 0 0 10px rgba(200,244,58,0)}}
+@keyframes flash{0%{box-shadow:0 0 0 0 var(--accent-glow)}100%{box-shadow:0 0 0 10px transparent}}
 .ex-actions{display:flex;gap:4px;margin:8px -4px 6px;flex-wrap:wrap}
 .ex-actions button{min-height:38px;padding:6px 10px;font-size:14px;background:none;color:var(--text2)}
 .ex-actions button:first-child{color:var(--accent-text)}
@@ -220,7 +224,7 @@ details[open]>summary{margin-bottom:10px}
 .tl-v span{font-size:15px;font-weight:600;color:var(--text2)}
 .tl-d{font-size:13px;font-weight:700;margin-top:2px;color:var(--text2);font-variant-numeric:tabular-nums}
 .tl-d span{font-weight:500;color:var(--text3)}
-.tl-d.good{color:var(--accent-text)} .tl-d.bad{color:var(--warn)}
+.tl-d.good{color:var(--good)} .tl-d.bad{color:var(--warn)}
 .spark{display:block;width:100%;height:34px;margin-top:6px}
 .spark .sl{fill:none;stroke:var(--text3);stroke-width:2;stroke-linejoin:round;stroke-linecap:round}
 .spark .sd{fill:var(--chart);stroke:var(--s1);stroke-width:2}
@@ -275,7 +279,7 @@ details.card.mcard>summary::after{content:none}
 .kvv span{font-size:13px;font-weight:600;color:var(--text2);margin-left:2px}
 .kd{font-size:12px;font-weight:700;color:var(--text3);font-variant-numeric:tabular-nums;white-space:nowrap;flex:none}
 .kd.first{font-weight:600}
-.kd.good{color:var(--accent-text)} .kd.bad{color:var(--warn)} .kd.neutral{color:var(--text2)}
+.kd.good{color:var(--good)} .kd.bad{color:var(--warn)} .kd.neutral{color:var(--text2)}
 .diffdev{display:inline-block;margin-right:2px;color:var(--text3);font-weight:800}
 .more{display:flex;align-items:center;justify-content:center;gap:6px;margin-top:10px;font-size:14px;font-weight:650;color:var(--accent-text)}
 .more::after{content:"";width:7px;height:7px;border-right:2px solid currentColor;border-bottom:2px solid currentColor;transform:rotate(45deg);margin-top:-3px;transition:transform .25s}
@@ -298,3 +302,18 @@ details.card.mcard>summary::after{content:none}
 .foot{font-size:12px;margin:-2px 2px 0}
 .empty{text-align:center;padding:22px}
 @media (max-width:340px){.kt{flex-direction:column;align-items:flex-start;gap:0}}
+
+/* ---------- v0.5.0: latausnäyttö ---------- */
+#splash{position:fixed;inset:0;z-index:100;display:grid;place-items:center;overflow:hidden;background:var(--brand-red);
+  transition:opacity .35s ease,visibility .35s;padding:env(safe-area-inset-top) 0 env(safe-area-inset-bottom)}
+#splash.out{opacity:0;visibility:hidden;pointer-events:none}
+#splash .sp-rays{position:absolute;left:50%;top:50%;width:260vmax;height:260vmax;margin:-130vmax 0 0 -130vmax;
+  background:repeating-conic-gradient(from 0deg,#d63f31 0 7.5deg,transparent 7.5deg 15deg);animation:sp-spin 40s linear infinite}
+#splash .sp-mark{position:relative;display:flex;flex-direction:column;align-items:center;font-family:system-ui,-apple-system,"Inter",sans-serif;font-weight:900}
+#splash .sp-bar{width:210px;height:38px;animation:sp-lift 1.1s cubic-bezier(.45,0,.3,1) infinite}
+#splash .sp-word{margin-top:10px;display:flex;flex-direction:column;align-items:center;transform:skewX(-8deg)}
+#splash .sp-pump{font-size:84px;line-height:.9;letter-spacing:-3px;color:var(--brand-cream);-webkit-text-stroke:5px var(--brand-ink);paint-order:stroke fill;text-shadow:5px 5px 0 var(--brand-ink)}
+#splash .sp-club{margin-top:10px;font-size:36px;line-height:1;letter-spacing:1px;color:var(--brand-ink);background:var(--brand-cream);padding:4px 16px 6px;border:4px solid var(--brand-ink);box-shadow:5px 5px 0 var(--brand-ink)}
+@keyframes sp-spin{to{transform:rotate(360deg)}}
+@keyframes sp-lift{0%,100%{transform:translateY(8px)}50%{transform:translateY(-10px)}}
+@media (prefers-reduced-motion:reduce){ #splash .sp-rays,#splash .sp-bar{animation:none} }

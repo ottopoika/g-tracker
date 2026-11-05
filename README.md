@@ -1,4 +1,4 @@
-# Treeni
+# Pump Club (ent. Treeni)
 
 Henkilökohtainen salitreenien kirjaussovellus (PWA) iPhonelle. Julkaistu GitHub Pagesissa, data Firebase Firestoressa.
 Repossa ei ole treenidataa eikä salaisuuksia: Firebasen verkkoasetukset ovat julkisia, ja pääsy dataan on rajattu tietokannan säännöillä yhteen käyttäjätunnukseen.
