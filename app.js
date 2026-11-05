@@ -5,7 +5,7 @@ import {
   collection, doc, setDoc, deleteDoc, onSnapshot, writeBatch
 } from "./firebase-bundle.js";
 
-const VERSION = "0.5.0";
+const VERSION = "0.5.1";
 const firebaseConfig = {
   apiKey: "AIzaSyDTOryLjY0VBOa9DIuH02yVlxuy0JOBFKk",
   authDomain: "gym-tracker-e1050.firebaseapp.com",
@@ -128,7 +128,7 @@ const SPLASH_MIN_MS = 700;
 function hideSplash() {
   const el = document.getElementById("splash"); if (!el || el.dataset.out) return;
   el.dataset.out = "1";
-  setTimeout(() => { el.classList.add("out"); setTimeout(() => el.remove(), 400); }, Math.max(0, SPLASH_MIN_MS - performance.now()));
+  setTimeout(() => { el.classList.add("out"); document.documentElement.classList.remove("splashing"); setTimeout(() => el.remove(), 400); }, Math.max(0, SPLASH_MIN_MS - performance.now()));
 }
 setTimeout(hideSplash, 8000); // varmistus: ei koskaan jumiin latausnäyttöön
 

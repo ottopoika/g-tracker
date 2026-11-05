@@ -304,8 +304,10 @@ details.card.mcard>summary::after{content:none}
 @media (max-width:340px){.kt{flex-direction:column;align-items:flex-start;gap:0}}
 
 /* ---------- v0.5.0: latausnäyttö ---------- */
-#splash{position:fixed;inset:0;z-index:100;display:grid;place-items:center;overflow:hidden;background:var(--brand-red);
-  transition:opacity .35s ease,visibility .35s;padding:env(safe-area-inset-top) 0 env(safe-area-inset-bottom)}
+/* iOS-PWA: fixed-elementti ei aina ulotu kotipalkin alle, joten myös sivun tausta on punainen latausnäytön ajan */
+html.splashing,html.splashing body{background:var(--brand-red)}
+#splash{position:fixed;top:calc(-1 * env(safe-area-inset-top));bottom:calc(-1 * env(safe-area-inset-bottom));left:0;right:0;min-height:100lvh;z-index:100;display:grid;place-items:center;overflow:hidden;background:var(--brand-red);
+  transition:opacity .35s ease,visibility .35s}
 #splash.out{opacity:0;visibility:hidden;pointer-events:none}
 #splash .sp-rays{position:absolute;left:50%;top:50%;width:260vmax;height:260vmax;margin:-130vmax 0 0 -130vmax;
   background:repeating-conic-gradient(from 0deg,#d63f31 0 7.5deg,transparent 7.5deg 15deg);animation:sp-spin 40s linear infinite}
