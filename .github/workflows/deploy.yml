@@ -1,0 +1,40 @@
+# Julkaisu GitHub Pagesiin. Ajetaan jokaisesta main-haaran muutoksesta (myös käsin ladatuista) ja ci.yml:n käynnistämänä.
+name: Julkaise sovellus
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+concurrency:
+  group: pages
+  cancel-in-progress: false
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 22 }
+      - name: Aja testit
+        working-directory: tests
+        run: npm install --no-audit --no-fund && npx playwright install --with-deps chromium && npm test
+  deploy:
+    needs: test
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.pages.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Kokoa julkaistavat tiedostot
+        run: |
+          mkdir _site
+          cp index.html style.css app.js sw.js firebase-bundle.js manifest.webmanifest icon-*.png _site/
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with: { path: _site }
+      - id: pages
+        uses: actions/deploy-pages@v4
