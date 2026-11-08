@@ -61,18 +61,41 @@ try {
     await pg.locator(".ex").first().locator(".set").nth(1).locator("[data-f=kg]").fill("72,5"); await pg.locator(".ex").first().locator(".set").nth(1).locator("[data-f=r]").fill("8"); await W(80);
     await pg.locator(".ex").first().locator(".set").nth(1).locator(".ok").click(); await W(150);
     check("uusi ennätys merkitään", (await pg.locator(".ex .best").first().textContent()).includes("72,5×8") && await pg.locator(".ex .best .pr").count() === 1);
-    await pg.click("#finish"); await W(250);
+    // v0.7.0: ohitettu liike lasketaan tehdyksi → treeni "Tehty", vaikka Penkissä 2/3 sarjaa
+    await pg.locator(".ex").nth(1).locator("[data-act=skip]").click(); await W(150);
+    await pg.click("#finish"); await W(450);
+    check("juhlanäyttö treenin jälkeen", await pg.locator("#celeb").isVisible() && (await pg.locator("#celeb .cb-title").textContent()) === "TREENI TEHTY!");
+    check("yhteenvedossa ennätys", (await pg.locator("#celeb .cb-pr").count()) === 1 && (await pg.locator("#celeb .cb-stats").textContent()).includes("2sarjaa"));
+    await pg.click("#celeb-ok"); await W(450);
+    check("juhlanäyttö sulkeutuu", await pg.locator("#celeb").count() === 0);
     check("ajastin piiloon treenin jälkeen", !(await pg.locator("#timer").isVisible()));
+    check("ohitettu liike = treeni tehty", (await pg.locator(".slot.is-tehty .badge.tehty").count()) === 1 && (await pg.locator(".slot.is-perfect").count()) === 0);
     check("seuraava siirtyy treeniin 2", (await pg.locator(".slot.next h3").textContent()).includes("Treeni 2"));
+    // v0.7.0: kaikki liikkeet ja sarjat → täydellinen treeni
+    await pg.click(".hero [data-slot]"); await W(250);
+    for (let i = 0; i < 3; i++) { await pg.locator(".ex").first().locator(".set").nth(i).locator(".ok").click(); await W(120); }
+    await pg.click("#finish"); await W(450);
+    check("täydellinen treeni -juhlanäyttö", await pg.locator("#celeb.perfect").isVisible() && (await pg.locator("#celeb .cb-title").textContent()) === "TÄYDELLINEN!");
+    await pg.click("#celeb-ok"); await W(450);
+    check("täydellinen treeni merkitty listaan", (await pg.locator(".slot.is-perfect .badge.taydellinen").count()) === 1);
+    // v0.7.0: Ohjelma-välilehden viikon napautus näyttää viikon treenit ja avaa treenin
+    await pg.click("[data-tab=ohjelma]"); await W(200); await pg.click("[data-week='1']"); await W(200);
+    check("viikkonäkymä aukeaa", await pg.locator("#weekpanel .wk-row").count() === 3 && await pg.locator("#weekpanel .badge.taydellinen").count() === 1);
+    await pg.locator("#weekpanel [data-open]").first().click(); await W(250);
+    check("viikkonäkymästä avautuu treeni", (await pg.locator("h1").first().textContent()).includes("Treeni 1"));
+    await pg.click("#back"); await W(200);
+    check("takaisin palaa ohjelmaan", await pg.locator("#weekpanel").count() === 1);
+    await pg.click("[data-tab=tanaan]"); await W(200);
     // oma treeni + sumea haku
     await pg.click("#custom"); await W(200); await pg.click("#cempty"); await W(200);
     await pg.click("#addex"); await W(150); await pg.fill("#exq", "penkkipunerus"); await W(150);
     check("sumea haku löytää", (await pg.locator("#exres [data-n]").allTextContents()).includes("Penkkipunnerrus"));
     await pg.locator("#exres [data-n]").first().click(); await W(200);
     await pg.locator(".ex .set .ok").first().click(); await W(150);
-    await pg.click("#finish"); await W(250);
+    await pg.click("#finish"); await W(450); await pg.click("#celeb-ok"); await W(400);
     // historia
     await pg.click("[data-tab=historia]"); await W(250);
+    check("vanha osittain-treeni päivittyy tehdyksi (ohitettu liike)", await pg.locator("details.card", { hasText: "Ohitustesti" }).locator(".badge.tehty").count() === 1);
     check("historiassa oma treeni", (await pg.locator(".badge", { hasText: "Oma" }).count()) >= 1);
     // keho
     await pg.click("[data-tab=paino]"); await W(300);

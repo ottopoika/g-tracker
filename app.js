@@ -5,7 +5,7 @@ import {
   collection, doc, setDoc, deleteDoc, onSnapshot, writeBatch
 } from "./firebase-bundle.js";
 
-const VERSION = "0.6.0";
+const VERSION = "0.7.0";
 const firebaseConfig = {
   apiKey: "AIzaSyDTOryLjY0VBOa9DIuH02yVlxuy0JOBFKk",
   authDomain: "gym-tracker-e1050.firebaseapp.com",
@@ -84,6 +84,34 @@ function bestSetFor(liike, excludeId) {
   }
   return best;
 }
+// Treenin tulos (v0.7.0). Liike on tehty, kun siitä on kirjattu vähintään yksi sarja tai se on ohitettu.
+// Treeni on tehty, kun kaikki ohjelman liikkeet ovat tehtyjä. Täydellinen = ei ohituksia ja jokaisessa liikkeessä kaikki suunnitellut sarjat.
+function sessionResult(k) {
+  const ls = k.liikkeet || [], sets = k.sarjat || [];
+  const cnt = li => sets.filter(s => s.liikeIndex === li && s.tyyppi !== "merkinta").length;
+  const planned = ls.map((l, li) => ({ l, li })).filter(x => !x.l.lisatty);
+  const tehty = planned.every(({ l, li }) => l.ohitettu || cnt(li) > 0);
+  const perfect = planned.length > 0 && planned.every(({ l, li }) => !l.ohitettu && cnt(li) >= (l.sarjoja || 1));
+  const tila = k.tyyppi === "oma" ? (sets.length ? "tehty" : "valiin") : !sets.length ? "valiin" : tehty ? "tehty" : "osittain";
+  return { tila, perfect: k.tyyppi !== "oma" && tila === "tehty" && perfect };
+}
+const isPerfect = k => k.lahde === "sovellus" && k.tila === "tehty" && sessionResult(k).perfect;
+const statusBadge = (k, withDate) => {
+  const perf = isPerfect(k);
+  const label = perf ? "Täydellinen" : { tehty: "Tehty", osittain: "Osittain", valiin: "Väliin jätetty", kesken: "Kesken" }[k.tila] || k.tila;
+  return `<span class="badge ${perf ? "taydellinen" : k.tila}">${perf ? "★ " : ""}${label}${withDate && k.pvm ? " " + fiDate(k.pvm) : ""}</span>`;
+};
+function sessionSummary(k) {
+  const sets = (k.sarjat || []).filter(s => s.tyyppi !== "merkinta");
+  const vol = sets.reduce((a, s) => a + (s.paino_kg > 0 ? s.paino_kg * (s.toistot || 0) : 0), 0);
+  const reps = sets.reduce((a, s) => a + (s.toistot || 0), 0);
+  const min = k.alku && k.loppu ? Math.max(0, Math.round((Date.parse(k.loppu) - Date.parse(k.alku)) / 6e4)) : null;
+  const names = [...new Set(sets.map(s => s.liike))];
+  const prs = names.map(n => { const prev = bestSetFor(n, k.id); if (!prev) return null;
+    const top = sets.filter(s => s.liike === n).reduce((a, s) => !a || betterSet(s, a) ? s : a, null);
+    return top && betterSet(top, prev.s) ? { liike: n, s: top, was: prev.s } : null; }).filter(Boolean);
+  return { sets: sets.length, reps, vol, min, exercises: names.length, prs };
+}
 // Väline päätellään liikkeen nimestä. Koko nimi pysyy tunnisteena; perusliike ja väline ovat johdettuja kenttiä.
 const EQUIP = [[" smith-laitteessa", "smith"], [" levytangolla", "tanko"], [" tangolla", "tanko"], [" kp.", "kp"], [" käsipainoilla", "kp"],
   [" jalkaprässissä", "jalkaprässi"], [" scott-penkissä", "scott-penkki"], [" laitteessa", "laite"], [" koneessa", "laite"], [" taljassa", "talja"]];
@@ -124,7 +152,10 @@ onAuthStateChanged(auth, user => {
   unsub.push(onSnapshot(userDoc("meta", "tila"), snap => { S.meta = snap.exists() ? snap.data() : {}; S.loaded.meta = true; render(); }, onErr));
   unsub.push(onSnapshot(userCol("treenikerrat"), { includeMetadataChanges: true }, snap => {
     S.kerrat = snap.docs.map(d => ({ id: d.id, ...d.data() }));
-    S.pending = snap.metadata.hasPendingWrites; S.loaded.kerrat = true; updateSync(); render();
+    S.pending = snap.metadata.hasPendingWrites; S.loaded.kerrat = true;
+    // v0.7.0: ohitettu liike lasketaan tehdyksi → aiemmin "osittain" merkityt voivat olla nyt "tehty"
+    S.kerrat.forEach(k => { if (k.lahde === "sovellus" && k.tyyppi !== "oma" && k.tila === "osittain" && sessionResult(k).tila === "tehty") { k.tila = "tehty"; persist(k); } });
+    updateSync(); render();
   }, onErr));
   unsub.push(onSnapshot(userCol("kehonpaino"), snap => { S.paino = snap.docs.map(d => ({ id: d.id, ...d.data() })).sort((a, b) => b.pvm.localeCompare(a.pvm)); render(); }, onErr));
   unsub.push(onSnapshot(userCol("mittaukset"), snap => { S.mittaukset = snap.docs.map(d => ({ id: d.id, ...d.data() })); render(); }, onErr));
@@ -148,6 +179,51 @@ function hideSplash() {
 }
 setTimeout(hideSplash, 8000); // varmistus: ei koskaan jumiin latausnäyttöön
 
+// ---------- juhlanäyttö treenin jälkeen (v0.7.0) ----------
+function celebrate(k) {
+  const sum = sessionSummary(k), perfect = sessionResult(k).perfect && k.tila === "tehty";
+  const title = perfect ? "TÄYDELLINEN!" : k.tila === "tehty" ? "TREENI TEHTY!" : "HYVÄÄ TYÖTÄ!";
+  const sub = perfect ? "Kaikki liikkeet ja sarjat tehty" : k.tila === "tehty" ? "Kaikki liikkeet tehty" : "Osa liikkeistä jäi tekemättä";
+  const fmtVol = v => v >= 1000 ? (v / 1000).toFixed(1).replace(".", ",") + " t" : Math.round(v) + " kg";
+  const el = document.createElement("div");
+  el.id = "celeb"; el.className = perfect ? "perfect" : ""; el.setAttribute("role", "dialog"); el.setAttribute("aria-label", title);
+  el.innerHTML = `<div class="sp-rays"></div><canvas id="confetti"></canvas>
+    <div class="cb-in">
+      ${perfect ? `<div class="cb-star" aria-hidden="true">★</div>` : ""}
+      <div class="cb-title">${title}</div>
+      <div class="cb-sub">${esc(k.treeni || "")}<br><span>${sub}</span></div>
+      <div class="cb-card">
+        <div class="cb-stats">
+          ${sum.min ? `<div><b>${sum.min}</b><span>min</span></div>` : ""}
+          <div><b>${sum.sets}</b><span>sarjaa</span></div>
+          <div><b>${sum.reps}</b><span>toistoa</span></div>
+          ${sum.vol ? `<div><b>${fmtVol(sum.vol)}</b><span>volyymi</span></div>` : ""}
+        </div>
+        ${sum.prs.length ? `<div class="cb-prs"><div class="cb-h">Uudet ennätykset · ${sum.prs.length}</div>${sum.prs.map(p => `<div class="cb-pr"><span>${esc(p.liike)}</span><b>${esc(setsText([p.s]))}</b><small>ennen ${esc(setsText([p.was]))}</small></div>`).join("")}</div>` : ""}
+      </div>
+      <button class="cb-ok" id="celeb-ok">Jatka</button>
+    </div>`;
+  document.body.appendChild(el); S.celebrating = true;
+  requestAnimationFrame(() => el.classList.add("in"));
+  const stop = confetti(el.querySelector("#confetti"), perfect ? 260 : sum.prs.length ? 160 : 110, perfect);
+  document.getElementById("celeb-ok").onclick = () => { stop(); el.classList.remove("in"); el.classList.add("out"); S.celebrating = false; setTimeout(() => el.remove(), 350); };
+}
+// Kevyt konfetti canvasilla. Ei ulkoisia kirjastoja; prefers-reduced-motion → ei animaatiota.
+function confetti(cv, n, gold) {
+  if (matchMedia("(prefers-reduced-motion: reduce)").matches || !cv.getContext) return () => {};
+  const dpr = Math.min(2, devicePixelRatio || 1), W = cv.width = innerWidth * dpr, H = cv.height = innerHeight * dpr, c = cv.getContext("2d");
+  const cols = gold ? ["#ffd166", "#f6f1e5", "#ffb703", "#111111", "#fff3c4"] : ["#f6f1e5", "#111111", "#ffd166", "#ffffff"];
+  const ps = Array.from({ length: n }, (_, i) => ({ x: W / 2, y: H * 0.42, vx: (Math.random() - 0.5) * 26 * dpr, vy: (-Math.random() * 22 - 6) * dpr,
+    w: (6 + Math.random() * 8) * dpr, h: (8 + Math.random() * 10) * dpr, r: Math.random() * 6, vr: (Math.random() - 0.5) * 0.4, col: cols[i % cols.length], d: Math.random() * 12 }));
+  let raf, t = 0;
+  const tick = () => { t++; c.clearRect(0, 0, W, H); let alive = 0;
+    for (const p of ps) { if (t < p.d) { alive++; continue; } p.vy += 0.55 * dpr; p.vx *= 0.985; p.x += p.vx; p.y += p.vy; p.r += p.vr;
+      if (p.y < H + 40) { alive++; c.save(); c.translate(p.x, p.y); c.rotate(p.r); c.fillStyle = p.col; c.fillRect(-p.w / 2, -p.h / 2, p.w, p.h * Math.abs(Math.cos(t / 8 + p.d))); c.restore(); } }
+    if (alive) raf = requestAnimationFrame(tick); };
+  raf = requestAnimationFrame(tick);
+  return () => cancelAnimationFrame(raf);
+}
+
 // ---------- render ----------
 function render() {
   if (!S.user) return;
@@ -159,7 +235,7 @@ function render() {
   // liikevalitsin auki: piirretään uudelleen vasta kun se suljetaan
   if (document.getElementById("expick-wrap")) { S._deferred = true; return; }
   hideSplash();
-  const fn = { tanaan: renderToday, ohjelma: renderProgram, historia: renderHistory, paino: renderBody, vienti: renderData }[S.tab];
+  const fn = S.editId && S.tab === "ohjelma" ? renderToday : { tanaan: renderToday, ohjelma: renderProgram, historia: renderHistory, paino: renderBody, vienti: renderData }[S.tab];
   fn();
 }
 $view.addEventListener("focusin", e => { if (e.target.matches("input,textarea")) S._typing = true; });
@@ -212,9 +288,9 @@ function renderToday() {
   wi.slots.forEach((t, i) => { if (firstOpen < 0 && !sessionForSlot(p, w, i)) firstOpen = i; });
   const slotsHtml = wi.slots.map((t, i) => {
     const k = sessionForSlot(p, w, i);
-    const st = k ? `<span class="badge ${k.tila}">${{ tehty: "Tehty", osittain: "Osittain", valiin: "Väliin jätetty", kesken: "Kesken" }[k.tila]}${k.pvm ? " " + fiDate(k.pvm) : ""}</span>` : "";
+    const st = k ? statusBadge(k, true) : "";
     const isNext = i === firstOpen;
-    return `<div class="card slot ${isNext ? "next" : ""} ${k ? "is-" + k.tila : ""}"><div><h3>${esc(t.nimi)}</h3><div class="meta">${isNext ? `<span class="badge nextb">Seuraavaksi</span>` : ""}${t.liikkeet.length} liikettä ${st}</div></div>
+    return `<div class="card slot ${isNext ? "next" : ""} ${k ? "is-" + k.tila : ""} ${k && isPerfect(k) ? "is-perfect" : ""}"><div><h3>${esc(t.nimi)}</h3><div class="meta">${isNext ? `<span class="badge nextb">Seuraavaksi</span>` : ""}${t.liikkeet.length} liikettä ${st}</div></div>
       ${k ? (k.tila !== "valiin" ? `<button data-open="${k.id}" class="small">Avaa</button>` : "") : `<button data-slot="${i}" class="small ${isNext ? "primary" : ""}">Aloita</button>`}</div>`;
   }).join("");
   if (firstOpen >= 0) {
@@ -395,7 +471,7 @@ function renderWorkout(k) {
 function persist(k) { const { id, ...data } = k; save("treenikerrat", id, data); }
 function bindWorkout(k) {
   const draft = S.draft;
-  document.getElementById("back").onclick = () => { S.editId = null; S.draft = null; S.tab = "tanaan"; S._leave = k.id; render(); };
+  document.getElementById("back").onclick = () => { S.editId = null; S.draft = null; if (S.tab !== "ohjelma") S.tab = "tanaan"; S._leave = k.id; render(); };
   $view.querySelectorAll(".ex").forEach(ex => {
     const li = +ex.dataset.li; const l = k.liikkeet[li];
     ex.addEventListener("input", e => {
@@ -444,13 +520,11 @@ function bindWorkout(k) {
     k.liikkeet.push({ nimi: name, tavoite: "", suunniteltu: name, sarjoja: 3, toistot: [], tyypit: [], ohitettu: false, huomio: "", lisatty: true }); persist(k); render(); });
   document.getElementById("knote").oninput = e => { k.huomio = e.target.value; clearTimeout(draft._kn); draft._kn = setTimeout(() => persist(k), 800); };
   document.getElementById("finish").onclick = () => {
-    const planned = k.liikkeet.filter(l => !l.lisatty);
-    const all = planned.every((l, i) => !l.ohitettu && k.sarjat.some(s => s.liikeIndex === k.liikkeet.indexOf(l)));
-    if (k.tila === "kesken") {
-      k.tila = k.tyyppi === "oma" ? (k.sarjat.length ? "tehty" : "valiin") : (all ? "tehty" : (k.sarjat.length ? "osittain" : "valiin"));
-      k.loppu = nowISO(); stopTimer();
-    }
-    persist(k); S.editId = null; S.draft = null; toast(k.tila === "tehty" ? "Treeni tallennettu" : "Tallennettu"); render();
+    const wasLive = k.tila === "kesken";
+    if (wasLive) { k.tila = sessionResult(k).tila; k.loppu = nowISO(); stopTimer(); }
+    else if (k.tila === "tehty" || k.tila === "osittain") k.tila = sessionResult(k).tila; // muokkaus voi muuttaa tuloksen
+    persist(k); S.editId = null; S.draft = null; render();
+    if (wasLive && k.tila !== "valiin") celebrate(k); else toast("Tallennettu");
   };
   const del = document.getElementById("del"), cancel = document.getElementById("cancel");
   if (del) del.onclick = () => { if (confirm("Poistetaanko koko treenikerta pysyvästi?")) { deleteDoc(userDoc("treenikerrat", k.id)); S.kerrat = S.kerrat.filter(x => x.id !== k.id); S.editId = null; render(); } };
@@ -500,9 +574,10 @@ function renderProgram() {
     const wi = weekInfo(p, w); const ss = sessionsOfWeek(p, w); const n = wi.slots.length;
     const done = ss.filter(k => k.tila === "tehty" || k.tila === "osittain").length;
     const cls = [w === cur ? "cur" : "", n && done >= n ? "full" : done ? "part" : ""].join(" ");
-    h += `<div class="${cls}">Vk ${w}<br><b>${n ? done + "/" + n : "lepo"}</b></div>`;
+    h += `<div class="${cls} ${S.weekView === w ? "sel" : ""}" data-week="${w}" role="button" tabindex="0" aria-label="Viikko ${w}">Vk ${w}<br><b>${n ? done + "/" + n : "lepo"}</b></div>`;
   }
   h += `</div>`;
+  if (S.weekView && S.weekView <= p.viikkoja) h += weekPanel(p, S.weekView, cur);
   p.jaksot.forEach(j => {
     h += `<h2>${esc(j.nimi)} <span class="muted small">vk ${j.viikot[0].viikko}${j.viikot.length > 1 ? "–" + j.viikot[j.viikot.length - 1].viikko : ""}</span></h2><p class="muted small">${esc(j.ohje)}</p>`;
     j.treenit.forEach(t => h += `<details class="card"><summary><b>${esc(t.nimi)}</b></summary>${t.liikkeet.map(l => `<div class="row space small list-item"><span>${esc(l.nimi)}</span><span class="muted">${esc(l.tavoite)}</span></div>`).join("")}</details>`);
@@ -512,6 +587,11 @@ function renderProgram() {
   if (S.meta?.aloitus) h += `<h2>Nollaa aloitus</h2><p class="muted small">Poistaa ohjelman aloituspäivän ja kaikki tämän ohjelman sovelluksella kirjatut treenikerrat. Vanha historia ja punnitukset säilyvät. Käytä esim. testauksen jälkeen.</p>
     <button class="danger block" id="reset">Nollaa ohjelman aloitus</button>`;
   $view.innerHTML = h;
+  // v0.7.0: viikon napautus avaa viikon treenit; treenin "Avaa" näyttää treenin (Takaisin palaa Ohjelmaan)
+  $view.querySelectorAll("[data-week]").forEach(el => el.onclick = () => { const w = +el.dataset.week; S.weekView = S.weekView === w ? null : w; render();
+    if (S.weekView) document.getElementById("weekpanel")?.scrollIntoView({ behavior: "smooth", block: "nearest" }); });
+  const wc = document.getElementById("wclose"); if (wc) wc.onclick = () => { S.weekView = null; render(); };
+  $view.querySelectorAll("#weekpanel [data-open]").forEach(b => b.onclick = () => { S.editId = b.dataset.open; S._leave = null; render(); scrollTo(0, 0); });
   const rb = document.getElementById("reset");
   if (rb) rb.onclick = () => {
     const mine = S.kerrat.filter(k => k.lahde === "sovellus" && k.ohjelmaId === p.id);
@@ -521,6 +601,21 @@ function renderProgram() {
     saveMeta({ aloitus: null, viikko: null, vaihdot: [] }); toast("Aloitus nollattu");
   };
   const wb = document.getElementById("wbtn"); if (wb) wb.onclick = () => { const v = +document.getElementById("wset").value; if (v >= 1 && v <= p.viikkoja + 1) { saveMeta({ viikko: v }); toast("Viikko " + v); } };
+}
+
+function weekPanel(p, w, cur) {
+  const wi = weekInfo(p, w), fmtVol = v => v >= 1000 ? (v / 1000).toFixed(1).replace(".", ",") + " t" : Math.round(v) + " kg";
+  let tot = { sets: 0, vol: 0 };
+  const rows = wi.slots.map((t, i) => {
+    const k = sessionForSlot(p, w, i), sum = k && k.tila !== "valiin" ? sessionSummary(k) : null;
+    if (sum) { tot.sets += sum.sets; tot.vol += sum.vol; }
+    const st = k ? statusBadge(k, true) : `<span class="badge valiin">${w < cur ? "Ei kirjattu" : w === cur ? "Tekemättä" : "Tulossa"}</span>`;
+    const info = sum ? `${sum.sets} sarjaa${sum.vol ? " · " + fmtVol(sum.vol) : ""}${sum.prs.length ? ` · <b class="prc">${sum.prs.length} ennätys${sum.prs.length > 1 ? "tä" : ""}</b>` : ""}` : `${t.liikkeet.length} liikettä`;
+    return `<div class="wk-row ${k && isPerfect(k) ? "is-perfect" : ""}"><div><div class="wk-n">${esc(t.nimi)}</div><div class="meta">${st} <span>${info}</span></div></div>
+      ${k && k.tila !== "valiin" ? `<button class="small" data-open="${k.id}">Avaa</button>` : ""}</div>`;
+  }).join("");
+  return `<div class="card" id="weekpanel"><div class="row space"><div><h2 style="margin:0">Viikko ${w}</h2><div class="muted" style="font-size:14px">${esc(wi.jakso?.nimi || "")}${tot.sets ? ` · ${tot.sets} sarjaa${tot.vol ? " · " + fmtVol(tot.vol) : ""}` : ""}</div></div>
+    <button class="ghost small" id="wclose">Sulje</button></div>${rows || `<p class="muted small">Lepoviikko.</p>`}</div>`;
 }
 
 // ----- Historia -----
@@ -539,7 +634,7 @@ function renderHistory() {
     (k.sarjat || []).forEach(s => { if (!f || (s.liike || "").toLowerCase().includes(f)) (byEx[s.liike] = byEx[s.liike] || []).push(s); });
     const when = k.pvm ? fiDate(k.pvm) : `Viikko ${k.viikko || "?"}`;
     return `<details class="card"><summary><div class="row space" style="flex:1;align-items:flex-start"><div><b>${when}</b> · ${esc(k.treeni || "")}<div class="muted" style="font-size:14px">${esc(k.ohjelma || "")}</div></div>
-      <span class="badge ${k.lahde === "sovellus" ? k.tila : "vanha"}">${k.lahde === "sovellus" ? (k.tyyppi === "oma" ? "Oma" : ({ tehty: "Tehty", osittain: "Osittain", valiin: "Väliin" }[k.tila] || k.tila)) : "Vanha"}</span></div></summary>
+      ${k.lahde !== "sovellus" ? `<span class="badge vanha">Vanha</span>` : k.tyyppi === "oma" ? `<span class="badge ${k.tila}">Oma</span>` : statusBadge(k, false)}</div></summary>
       ${Object.entries(byEx).map(([n, ss]) => `<div class="sets-line"><b>${esc(n)}</b>: ${esc(setsText(ss.filter(s => s.tyyppi !== "merkinta")))}${ss.filter(s => s.huomio).map(s => ` <span class="muted small">(${esc(s.huomio)})</span>`).slice(0, 2).join("")}</div>`).join("") || `<p class="muted small">Ei sarjoja</p>`}
       ${k.huomio ? `<p class="muted small">${esc(k.huomio)}</p>` : ""}
       ${k.lahde === "sovellus" ? `<button class="ghost small" data-edit="${k.id}">Muokkaa</button>` : ""}</details>`;
@@ -946,7 +1041,7 @@ if ("serviceWorker" in navigator) {
   }).catch(() => {});
   navigator.serviceWorker.addEventListener("controllerchange", () => {
     if (!hadController || S._reloading) return;
-    const busy = S.editId || S.mode || S._typing || S.timer;
+    const busy = S.editId || S.mode || S._typing || S.timer || S.celebrating;
     if (!busy) { S._reloading = true; location.reload(); return; }
     toast("Uusi versio saatavilla – napauta päivittääksesi", 15000);
     document.getElementById("toast").onclick = () => location.reload();

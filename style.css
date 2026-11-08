@@ -324,3 +324,63 @@ html.splashing,html.splashing body{background:var(--brand-red)}
 @keyframes sp-spin{to{transform:rotate(360deg)}}
 @keyframes sp-lift{0%,100%{transform:translateY(8px)}50%{transform:translateY(-10px)}}
 @media (prefers-reduced-motion:reduce){ #splash .sp-rays,#splash .sp-bar{animation:none} }
+
+/* ---------- v0.7.0: täydellinen treeni ja juhlanäyttö ---------- */
+:root{--gold:#ffc23d;--gold2:#ffe08a;--gold-ink:#3a2600}
+@media (prefers-color-scheme:light){ :root{--gold:#e0a100;--gold2:#ffd35c;--gold-ink:#2e1e00} }
+.badge.taydellinen{color:var(--gold-ink);background:linear-gradient(110deg,var(--gold) 0%,var(--gold2) 40%,#fff6d6 50%,var(--gold2) 60%,var(--gold) 100%);
+  background-size:250% 100%;animation:shine 3.2s ease-in-out infinite}
+.slot.is-perfect{border-color:var(--gold);box-shadow:0 0 0 1px var(--gold) inset,0 0 24px -6px var(--gold);
+  background:linear-gradient(100deg,rgba(255,194,61,.14),transparent 65%),var(--s1)}
+.slot.is-perfect h3{color:var(--text)}
+@keyframes shine{0%,100%{background-position:100% 0}50%{background-position:0 0}}
+
+#celeb{position:fixed;top:calc(-1 * env(safe-area-inset-top));bottom:calc(-1 * env(safe-area-inset-bottom));left:0;right:0;z-index:90;overflow:hidden;
+  display:grid;place-items:center;background:var(--brand-red);opacity:0;transition:opacity .3s ease}
+#celeb.in{opacity:1} #celeb.out{opacity:0;pointer-events:none}
+#celeb.perfect{background:radial-gradient(80% 60% at 50% 38%,#f2683a,var(--brand-red) 70%)}
+#celeb .sp-rays{position:absolute;left:50%;top:42%;width:260vmax;height:260vmax;margin:-130vmax 0 0 -130vmax;
+  background:repeating-conic-gradient(from 0deg,#d63f31 0 7.5deg,transparent 7.5deg 15deg);animation:sp-spin 40s linear infinite}
+#celeb.perfect .sp-rays{background:repeating-conic-gradient(from 0deg,rgba(255,194,61,.28) 0 7.5deg,transparent 7.5deg 15deg)}
+#celeb canvas{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;z-index:2}
+#celeb .cb-in{position:relative;z-index:1;width:min(100% - 32px,420px);display:flex;flex-direction:column;align-items:center;text-align:center;
+  padding:calc(env(safe-area-inset-top) + 24px) 0 calc(env(safe-area-inset-bottom) + 24px);font-family:system-ui,-apple-system,"Inter",sans-serif}
+#celeb .cb-star{font-size:64px;line-height:1;color:var(--gold2);-webkit-text-stroke:3px var(--brand-ink);text-shadow:4px 4px 0 var(--brand-ink);margin-bottom:6px}
+#celeb .cb-title{font-weight:900;font-size:clamp(40px,12vw,60px);line-height:.95;letter-spacing:-2px;color:var(--brand-cream);transform:skewX(-8deg);
+  -webkit-text-stroke:4px var(--brand-ink);paint-order:stroke fill;text-shadow:4px 4px 0 var(--brand-ink)}
+#celeb.perfect .cb-title{color:var(--gold2)}
+#celeb .cb-sub{margin-top:14px;color:var(--brand-cream);font-size:17px;font-weight:750}
+#celeb .cb-sub span{font-weight:550;opacity:.85;font-size:15px}
+#celeb .cb-card{margin-top:20px;width:100%;background:var(--brand-cream);color:var(--brand-ink);border:3px solid var(--brand-ink);border-radius:18px;
+  box-shadow:5px 5px 0 var(--brand-ink);padding:16px 14px}
+#celeb .cb-stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(70px,1fr));gap:8px}
+#celeb .cb-stats b{display:block;font-size:28px;font-weight:900;letter-spacing:-.03em;font-variant-numeric:tabular-nums}
+#celeb .cb-stats span{font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;opacity:.65}
+#celeb .cb-prs{margin-top:14px;padding-top:12px;border-top:2px dashed rgba(17,17,17,.25);text-align:left}
+#celeb .cb-h{font-size:12px;font-weight:800;text-transform:uppercase;letter-spacing:.06em;color:#c93224;margin-bottom:6px}
+#celeb .cb-pr{display:grid;grid-template-columns:1fr auto;gap:0 10px;padding:5px 0;font-size:15px}
+#celeb .cb-pr b{font-weight:850;font-variant-numeric:tabular-nums}
+#celeb .cb-pr small{grid-column:1/-1;font-size:12px;opacity:.6}
+#celeb .cb-ok{margin-top:22px;min-width:200px;min-height:54px;font-size:18px;font-weight:850;border-radius:999px;background:var(--brand-ink);color:var(--brand-cream);
+  box-shadow:4px 4px 0 rgba(0,0,0,.25)}
+#celeb.in .cb-title{animation:pop-in .6s cubic-bezier(.2,1.6,.4,1) both}
+#celeb.in .cb-star{animation:pop-in .6s .1s cubic-bezier(.2,1.6,.4,1) both}
+#celeb.in .cb-card{animation:rise .5s .2s var(--ease) both}
+#celeb.in .cb-ok{animation:rise .5s .35s var(--ease) both}
+@keyframes pop-in{0%{transform:skewX(-8deg) scale(.3);opacity:0}100%{transform:skewX(-8deg) scale(1);opacity:1}}
+@keyframes rise{0%{transform:translateY(24px);opacity:0}100%{transform:none;opacity:1}}
+#celeb.in .cb-star{animation-name:pop-star}
+@keyframes pop-star{0%{transform:scale(.2) rotate(-40deg);opacity:0}100%{transform:none;opacity:1}}
+@media (prefers-reduced-motion:reduce){ .badge.taydellinen,#celeb .sp-rays{animation:none} #celeb.in *{animation:none!important} }
+
+/* v0.7.0: viikkonäkymä Ohjelma-välilehdellä */
+.week-grid div[data-week]{cursor:pointer;transition:transform .15s}
+.week-grid div[data-week]:active{transform:scale(.96)}
+.week-grid div.sel{outline:2px solid var(--text);outline-offset:2px}
+#weekpanel{scroll-margin:90px}
+.wk-row{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:12px 0;border-top:1px solid var(--line)}
+.wk-row:first-of-type{margin-top:10px}
+.wk-row .wk-n{font-weight:700;font-size:16px}
+.wk-row .meta{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin-top:4px;font-size:14px;color:var(--text2)}
+.wk-row .prc{color:var(--accent-text);font-weight:750}
+.wk-row.is-perfect .wk-n{color:var(--gold)}

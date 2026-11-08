@@ -32,6 +32,7 @@ Uudet kentät lisätään olemassa oleviin dokumentteihin; rakennetta ei muuteta
 - Ohjelma etenee **tehtyjen treenien** mukaan, ei kalenterin. Väliin jättäminen ja viikon venyminen sallittu; viikon vaihto merkitsee tekemättömät `valiin`.
 - Korvattu liike kirjataan kokonaan korvaavan liikkeen nimellä. Liikkeen koko nimi on tunniste (esim. "Vinopenkki kp."); `perusliike` ja `valine` johdetaan nimestä (`splitEquip`). levytanko = tanko.
 - Oma treeni (`tyyppi: "oma"`, `ohjelma: "Oma"`) ei siirrä ohjelman etenemistä.
+- Treenin tila (`sessionResult`, v0.7.0): liike on tehty, kun siitä on vähintään yksi sarja tai se on ohitettu. Treeni on `tehty`, kun kaikki liikkeet ovat tehtyjä (kaikkia sarjoja ei tarvita). "Täydellinen" = ei ohituksia ja kaikki suunnitellut sarjat. Se lasketaan, ei tallenneta. "Treeni valmis" avaa juhlanäytön ja yhteenvedon (`celebrate`).
 - Jälkikirjaus-lippu: sarja kuitattu < 15 s edellisestä tai valmiin treenin muokkauksena. Ei näytetä käyttäjälle.
 - Palautusajastin ei ohjaa: ohitettava, ei estä kirjaamista.
 - Kehonkoostumus: eri laitteet mittaavat eri suureita. Tanitan `lihasmassa` ≠ InBody/Puhtin `luurankolihas`; `viskeraali_taso` ≠ `viskeraali_ala`. Vertailukelpoisiksi laitteiden välillä merkitään vain `ver: 1` -mittarit (paino, BMI, suositeltu paino); muut piirretään katkoviivalla laitteen vaihtuessa.
