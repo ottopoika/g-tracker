@@ -56,7 +56,11 @@ try {
     await pg.locator(".ex").first().locator(".set").nth(0).locator(".ok").click(); await W(200);
     check("palautusajastin käynnistyy", await pg.locator("#timer").isVisible());
     check("viimeksi-tieto vanhasta historiasta", (await pg.locator(".ex .last").first().textContent()).includes("60×10"));
-    await pg.locator(".ex").first().locator(".set").nth(1).locator(".ok").click(); await W(120);
+    // v0.6.0: kaikkien aikojen paras sarja (arvioitu maksimi: 70×8 > 60×10) ja uusi ennätys
+    check("paras sarja näkyy", (await pg.locator(".ex .best").first().textContent()).includes("70×8"));
+    await pg.locator(".ex").first().locator(".set").nth(1).locator("[data-f=kg]").fill("72,5"); await pg.locator(".ex").first().locator(".set").nth(1).locator("[data-f=r]").fill("8"); await W(80);
+    await pg.locator(".ex").first().locator(".set").nth(1).locator(".ok").click(); await W(150);
+    check("uusi ennätys merkitään", (await pg.locator(".ex .best").first().textContent()).includes("72,5×8") && await pg.locator(".ex .best .pr").count() === 1);
     await pg.click("#finish"); await W(250);
     check("ajastin piiloon treenin jälkeen", !(await pg.locator("#timer").isVisible()));
     check("seuraava siirtyy treeniin 2", (await pg.locator(".slot.next h3").textContent()).includes("Treeni 2"));

@@ -136,6 +136,11 @@ input[type=file]{padding:10px;font-size:15px}
 .ex h3{font-size:19px;font-weight:750;letter-spacing:-.02em}
 .ex .last{font-size:14px;color:var(--text2);margin:4px 0 12px}
 .ex .last b{color:var(--text);font-weight:650}
+/* v0.6.0: kaikkien aikojen paras sarja ja uusi ennätys */
+.ex .best{font-size:14px;color:var(--text2);margin:-8px 0 12px}
+.ex .best b{color:var(--text);font-weight:650}
+.ex .best .pr{display:inline-block;font-size:12px;font-weight:800;letter-spacing:.04em;text-transform:uppercase;padding:2px 8px;border-radius:99px;background:var(--accent);color:var(--accent-ink)}
+.ex .best .was{color:var(--text3)}
 .ex .tag{font-size:12px;font-weight:700;color:var(--text2);background:var(--s2);padding:4px 9px;border-radius:99px}
 .hdr-labels{display:grid;grid-template-columns:26px 1fr 1fr 52px;gap:8px;font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--text3);text-align:center;margin-bottom:2px}
 .set{display:grid;grid-template-columns:26px 1fr 1fr 52px;gap:8px;align-items:center;margin:8px 0}

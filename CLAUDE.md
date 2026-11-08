@@ -57,5 +57,8 @@ iOS 26 -henkinen: tumma ensisijainen teema, 4 pintatasoa (`--s1..--s3`) sävyero
 - Hyvä muutos `--good` (vihreä), huono `--warn` (oranssi). Punaista ei käytetä "hyvän" merkkinä.
 - Latausnäyttö `#splash` (index.html) poistetaan `hideSplash()`-funktiolla ensimmäisen näkymän jälkeen (vähintään 0,7 s, varmistus 8 s). Kuvakkeet `icon-*.png` piirretty HTML:stä Inter Black -fontilla (OFL).
 
+## Toteutettu ideoista
+- v0.6.0: kaikkien aikojen paras sarja + "Uusi ennätys" -merkintä treeninäkymässä (arvioitu maksimi, Epley).
+
 ## Ideoita, ei päätetty
-PR-merkintä, RIR/RPE per sarja, levylaskin, fiilismerkintä (uni/energia 1–5), jaksoyhteenveto, CSV-tuonti, .xlsx-vienti, automaattinen viikkovarmuuskopio, liikekohtaiset kehityskäyrät. Kysy Otolta ennen toteutusta.
+RIR/RPE per sarja, levylaskin, fiilismerkintä (uni/energia 1–5), jaksoyhteenveto, CSV-tuonti, .xlsx-vienti, automaattinen viikkovarmuuskopio, liikekohtaiset kehityskäyrät. Kysy Otolta ennen toteutusta.

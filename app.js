@@ -5,7 +5,7 @@ import {
   collection, doc, setDoc, deleteDoc, onSnapshot, writeBatch
 } from "./firebase-bundle.js";
 
-const VERSION = "0.5.2";
+const VERSION = "0.6.0";
 const firebaseConfig = {
   apiKey: "AIzaSyDTOryLjY0VBOa9DIuH02yVlxuy0JOBFKk",
   authDomain: "gym-tracker-e1050.firebaseapp.com",
@@ -65,6 +65,22 @@ function lastSetsFor(liike, excludeId) {
     if (!sets.length) continue;
     const key = (k.pvm || "0000") + (k.alku || "");
     if (!best || key > best.key) best = { key, k, sets };
+  }
+  return best;
+}
+// Kaikkien aikojen paras sarja. Vertailu arvioidulla maksimilla (Epley: kg × (1 + toistot/30)), joten 70×8 > 60×10.
+// Kehonpainoliikkeissä (ei painoa tai 0) eniten toistoja; avustetuissa (negatiivinen) vähiten apua, sitten toistot.
+const setScore = s => { const w = s.paino_kg, r = s.toistot || 0;
+  return w > 0 ? [2, w * (1 + r / 30)] : (w == null || w === 0) ? [1, r] : [0, w * 1000 + r]; };
+const betterSet = (a, b) => { const x = setScore(a), y = setScore(b); return x[0] !== y[0] ? x[0] > y[0] : x[1] > y[1]; };
+function bestSetFor(liike, excludeId) {
+  let best = null;
+  for (const k of S.kerrat) {
+    if (k.id === excludeId) continue;
+    for (const s of k.sarjat || []) {
+      if (s.liike !== liike || s.tyyppi === "merkinta" || (s.toistot == null && s.paino_kg == null)) continue;
+      if (!best || betterSet(s, best.s)) best = { s, k };
+    }
   }
   return best;
 }
@@ -339,12 +355,14 @@ function renderWorkout(k) {
   if (wi) h += `<p class="muted small">${esc(wi.jakso.ohje)}</p>`;
   (k.liikkeet || []).forEach((l, li) => {
     const done = k.sarjat.filter(s => s.liikeIndex === li);
-    const last = lastSetsFor(l.nimi, k.id);
+    const last = lastSetsFor(l.nimi, k.id), best = bestSetFor(l.nimi, k.id);
+    const newPR = best ? done.filter(s => betterSet(s, best.s)).reduce((a, s) => !a || betterSet(s, a) ? s : a, null) : null;
     const rows = Math.max(l.sarjoja || 0, done.length) + (draft.v["extra" + li] || 0);
     h += `<div class="ex ${l.ohitettu ? "skipped" : ""}" data-li="${li}">
       <div class="row space"><h3>${esc(l.nimi)}</h3>${(l.tavoite || !last) ? `<span class="tag">${esc(l.tavoite || "uusi")}</span>` : ""}</div>
       ${l.nimi !== l.suunniteltu ? `<div class="muted small">Korvaa: ${esc(l.suunniteltu)}</div>` : ""}
-      <div class="last">${last ? `Viimeksi ${last.k.pvm ? fiDate(last.k.pvm) : "viikko " + (last.k.viikko || "?")} · <b>${esc(setsText(last.sets))}</b>` : "Ei aiempia tuloksia"}</div>`;
+      <div class="last">${last ? `Viimeksi ${last.k.pvm ? fiDate(last.k.pvm) : "viikko " + (last.k.viikko || "?")} · <b>${esc(setsText(last.sets))}</b>` : "Ei aiempia tuloksia"}</div>
+      ${best ? `<div class="best">${newPR ? `<span class="pr">Uusi ennätys</span> <b>${esc(setsText([newPR]))}</b> <span class="was">(ennen ${esc(setsText([best.s]))})</span>` : `Paras ${best.k.pvm ? fiDate(best.k.pvm) : "viikko " + (best.k.viikko || "?")} · <b>${esc(setsText([best.s]))}</b>`}</div>` : ""}`;
     if (!l.ohitettu) {
       h += `<div class="hdr-labels"><span></span><span>kg</span><span>toistot</span><span></span></div>`;
       for (let si = 0; si < rows; si++) {
