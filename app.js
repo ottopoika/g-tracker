@@ -5,7 +5,7 @@ import {
   collection, doc, setDoc, deleteDoc, onSnapshot, writeBatch
 } from "./firebase-bundle.js";
 
-const VERSION = "0.7.0";
+const VERSION = "0.7.1";
 const firebaseConfig = {
   apiKey: "AIzaSyDTOryLjY0VBOa9DIuH02yVlxuy0JOBFKk",
   authDomain: "gym-tracker-e1050.firebaseapp.com",
@@ -99,7 +99,7 @@ const isPerfect = k => k.lahde === "sovellus" && k.tila === "tehty" && sessionRe
 const statusBadge = (k, withDate) => {
   const perf = isPerfect(k);
   const label = perf ? "Täydellinen" : { tehty: "Tehty", osittain: "Osittain", valiin: "Väliin jätetty", kesken: "Kesken" }[k.tila] || k.tila;
-  return `<span class="badge ${perf ? "taydellinen" : k.tila}">${perf ? "★ " : ""}${label}${withDate && k.pvm ? " " + fiDate(k.pvm) : ""}</span>`;
+  return `<span class="badge ${perf ? "taydellinen" : k.tila}">${perf ? "★ " : k.tila === "tehty" ? "✓ " : ""}${label}${withDate && k.pvm ? " " + fiDate(k.pvm) : ""}</span>`;
 };
 function sessionSummary(k) {
   const sets = (k.sarjat || []).filter(s => s.tyyppi !== "merkinta");
@@ -611,7 +611,7 @@ function weekPanel(p, w, cur) {
     if (sum) { tot.sets += sum.sets; tot.vol += sum.vol; }
     const st = k ? statusBadge(k, true) : `<span class="badge valiin">${w < cur ? "Ei kirjattu" : w === cur ? "Tekemättä" : "Tulossa"}</span>`;
     const info = sum ? `${sum.sets} sarjaa${sum.vol ? " · " + fmtVol(sum.vol) : ""}${sum.prs.length ? ` · <b class="prc">${sum.prs.length} ennätys${sum.prs.length > 1 ? "tä" : ""}</b>` : ""}` : `${t.liikkeet.length} liikettä`;
-    return `<div class="wk-row ${k && isPerfect(k) ? "is-perfect" : ""}"><div><div class="wk-n">${esc(t.nimi)}</div><div class="meta">${st} <span>${info}</span></div></div>
+    return `<div class="wk-row ${k ? "is-" + k.tila : ""} ${k && isPerfect(k) ? "is-perfect" : ""}"><div><div class="wk-n">${esc(t.nimi)}</div><div class="meta">${st} <span>${info}</span></div></div>
       ${k && k.tila !== "valiin" ? `<button class="small" data-open="${k.id}">Avaa</button>` : ""}</div>`;
   }).join("");
   return `<div class="card" id="weekpanel"><div class="row space"><div><h2 style="margin:0">Viikko ${w}</h2><div class="muted" style="font-size:14px">${esc(wi.jakso?.nimi || "")}${tot.sets ? ` · ${tot.sets} sarjaa${tot.vol ? " · " + fmtVol(tot.vol) : ""}` : ""}</div></div>

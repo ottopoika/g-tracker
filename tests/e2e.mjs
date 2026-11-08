@@ -69,6 +69,7 @@ try {
     await pg.click("#celeb-ok"); await W(450);
     check("juhlanäyttö sulkeutuu", await pg.locator("#celeb").count() === 0);
     check("ajastin piiloon treenin jälkeen", !(await pg.locator("#timer").isVisible()));
+    check("tehty-merkki vihreä ja ✓", await pg.locator(".slot.is-tehty .badge.tehty").evaluate(e => e.textContent.startsWith("✓") && getComputedStyle(e).color === getComputedStyle(document.documentElement).getPropertyValue("--good").trim().replace(/^#(..)(..)(..)$/, (_, r, g, b) => `rgb(${parseInt(r, 16)}, ${parseInt(g, 16)}, ${parseInt(b, 16)})`)));
     check("ohitettu liike = treeni tehty", (await pg.locator(".slot.is-tehty .badge.tehty").count()) === 1 && (await pg.locator(".slot.is-perfect").count()) === 0);
     check("seuraava siirtyy treeniin 2", (await pg.locator(".slot.next h3").textContent()).includes("Treeni 2"));
     // v0.7.0: kaikki liikkeet ja sarjat → täydellinen treeni

@@ -55,7 +55,7 @@ Uudet kentät lisätään olemassa oleviin dokumentteihin; rakennetta ei muuteta
 iOS 26 -henkinen: tumma ensisijainen teema, 4 pintatasoa (`--s1..--s3`) sävyeroilla, 34 px otsikot, tabulaariset numerot, `prefers-reduced-motion` kunnioitetaan.
 - Nimi **Pump Club** (v0.5.0, ent. Treeni). Oma retrohenkinen merkki (tanko + PUMP/CLUB). Älä kopioi Arnold's Pump Clubin logoa tai kuvia (tavaramerkki, repo julkinen).
 - Väriteema retro salijulisteesta: punainen `--brand-red #e84a3b`, kerma `--brand-cream #f6f1e5`, musta `--brand-ink`. Korostus `--accent` (tumma #e84a3b, vaalea #d8392b, teksti valkoinen `--accent-ink`), tekstinä `--accent-text`, kaavioissa `--chart`. Tumma teema lämmin musta, vaalea teema kermapohja.
-- Hyvä muutos `--good` (vihreä), huono `--warn` (oranssi). Punaista ei käytetä "hyvän" merkkinä.
+- Onnistuminen ja hyvä muutos `--good` / `--good-soft` (vihreä): "✓ Tehty", täydet viikot, Tallennettu. Huono muutos `--warn` (oranssi). Punaista ei käytetä onnistumisen tai "hyvän" merkkinä. Täydellinen treeni `--gold`.
 - Latausnäyttö `#splash` (index.html) poistetaan `hideSplash()`-funktiolla ensimmäisen näkymän jälkeen (vähintään 0,7 s, varmistus 8 s). Kuvakkeet `icon-*.png` piirretty HTML:stä Inter Black -fontilla (OFL).
 
 ## Toteutettu ideoista

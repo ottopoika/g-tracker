@@ -7,7 +7,7 @@
   --line:rgba(255,240,225,.07); --line2:rgba(255,240,225,.12);
   --text:#f6f1e5; --text2:rgba(246,241,229,.66); --text3:rgba(246,241,229,.42);
   --accent:#e84a3b; --accent-ink:#ffffff; --accent-text:#ff6a5a; --accent-soft:rgba(232,74,59,.16); --accent-glow:rgba(232,74,59,.32);
-  --good:#46c486;
+  --good:#46c486; --good-soft:rgba(70,196,134,.16);
   --warn:#ffb547; --warn-soft:rgba(255,181,71,.14);
   --danger:#ff6b6b; --danger-soft:rgba(255,107,107,.13);
   --blue:#7cb6ff; --blue-soft:rgba(124,182,255,.14);
@@ -25,7 +25,7 @@
     --line:rgba(40,20,10,.08); --line2:rgba(40,20,10,.14);
     --text:#17120f; --text2:rgba(50,38,30,.74); --text3:rgba(50,38,30,.48);
     --accent:#d8392b; --accent-ink:#ffffff; --accent-text:#c93224; --accent-soft:rgba(216,57,43,.11); --accent-glow:rgba(216,57,43,.25);
-    --good:#1e7a4c;
+    --good:#1e7a4c; --good-soft:rgba(30,122,76,.12);
     --warn:#b86e00; --warn-soft:rgba(255,160,0,.16); --danger:#c93224; --danger-soft:rgba(201,50,36,.1);
     --blue:#1f6fe0; --blue-soft:rgba(31,111,224,.1); --violet:#6b4fd8; --violet-soft:rgba(107,79,216,.1);
     --glass:rgba(255,252,246,.7); --glass-line:rgba(40,20,10,.08); --glass-hi:rgba(255,255,255,.7); --chart:#d8392b;
@@ -107,7 +107,7 @@ input[type=file]{padding:10px;font-size:15px}
 
 /* ---------- merkit ---------- */
 .badge{display:inline-flex;align-items:center;font-size:12px;font-weight:700;padding:4px 9px;border-radius:99px;background:var(--s3);color:var(--text2);white-space:nowrap}
-.badge.tehty{background:var(--accent-soft);color:var(--accent-text)}
+.badge.tehty{background:var(--good-soft);color:var(--good)}
 .badge.osittain{background:var(--warn-soft);color:var(--warn)}
 .badge.valiin{background:var(--s3);color:var(--text3)}
 .badge.kesken{background:var(--blue-soft);color:var(--blue)}
@@ -179,7 +179,7 @@ input[type=file]{padding:10px;font-size:15px}
 .week-grid div{position:relative;overflow:hidden;background:var(--s1);border:1px solid var(--line);border-radius:var(--r-m);padding:9px 4px;text-align:center;font-size:12px;color:var(--text2)}
 .week-grid div b{display:block;font-size:15px;color:var(--text);margin-top:2px}
 .week-grid div.cur{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent) inset}
-.week-grid div.full{background:var(--accent-soft)} .week-grid div.full b{color:var(--accent-text)}
+.week-grid div.full{background:var(--good-soft)} .week-grid div.full b{color:var(--good)}
 .week-grid div.part{background:var(--warn-soft)} .week-grid div.part b{color:var(--warn)}
 details.card summary{display:flex;justify-content:space-between;align-items:center}
 details.card summary::after{content:"";width:9px;height:9px;border-right:2px solid var(--text3);border-bottom:2px solid var(--text3);transform:rotate(45deg);transition:transform .25s;margin:0 4px 4px 12px;flex:none}
@@ -384,3 +384,9 @@ html.splashing,html.splashing body{background:var(--brand-red)}
 .wk-row .meta{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin-top:4px;font-size:14px;color:var(--text2)}
 .wk-row .prc{color:var(--accent-text);font-weight:750}
 .wk-row.is-perfect .wk-n{color:var(--gold)}
+
+/* v0.7.1: tehty = onnistuminen → vihreä ja ✓ (punainen on brändin korostus, ei onnistumisen merkki) */
+.slot.is-tehty{border-color:color-mix(in srgb,var(--good) 35%,transparent)}
+.slot.is-tehty h3,.wk-row.is-tehty .wk-n{color:var(--text)}
+.week-grid div.full::after{content:"✓";position:absolute;top:4px;right:6px;font-size:11px;font-weight:800;color:var(--good)}
+.slot.is-perfect{border-color:var(--gold)}
